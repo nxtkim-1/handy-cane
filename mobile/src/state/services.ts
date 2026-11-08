@@ -42,9 +42,20 @@ export const useApp = create<AppState>((set) => ({
   user: null,
   activePatientId: null,
   setConfig: (c) => {
-    api = null;
-    transport = null;
+    const prev = useApp.getState();
+    const apiChanged = (c.mock !== undefined && c.mock !== prev.mock) || (c.apiUrl !== undefined && c.apiUrl !== prev.apiUrl);
+    const transportChanged = (c.mock !== undefined && c.mock !== prev.mock) || (c.caneUrl !== undefined && c.caneUrl !== prev.caneUrl);
+    if (transportChanged) transport = null;
     stopCueFeed();
+    if (apiChanged) {
+      // Different backend: never carry credentials over; require a fresh sign-in.
+      api?.setTokens(null);
+      api = null;
+      void saveRefreshToken(null);
+      queryClient.clear();
+      set({ ...c, user: null, activePatientId: null });
+      return;
+    }
     set(c);
   },
   setUser: (u) => set({ user: u, activePatientId: u?.patient_ids[0] ?? null }),
