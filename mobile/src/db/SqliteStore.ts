@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import type { CaneRecord } from '../types';
-import type { ApplyPageResult, LocalStore, QueueItem } from './LocalStore';
+import type { ApplyPageResult, DeadLetter, LocalStore, QueueItem } from './LocalStore';
 
 export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS cane_records (
@@ -23,6 +23,15 @@ CREATE TABLE IF NOT EXISTS upload_queue (
   next_attempt_ms INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'pending',
   last_error TEXT
+);
+CREATE TABLE IF NOT EXISTS dead_letters (
+  device_id TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  batch_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  record_json TEXT,
+  created_ms INTEGER NOT NULL,
+  PRIMARY KEY (device_id, seq)
 );
 CREATE TABLE IF NOT EXISTS sync_cursor (
   device_id TEXT PRIMARY KEY NOT NULL,
@@ -104,11 +113,33 @@ export class SqliteStore implements LocalStore {
       `SELECT COUNT(*) AS b, SUM(record_count) AS r FROM upload_queue WHERE status='pending'`);
     const d = await this.db.getFirstAsync<{ n: number }>(
       `SELECT COUNT(*) AS n FROM upload_queue WHERE status='dead'`);
-    return { batches: p?.b ?? 0, records: p?.r ?? 0, dead: d?.n ?? 0 };
+    const l = await this.db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM dead_letters');
+    return { batches: p?.b ?? 0, records: p?.r ?? 0, dead: (d?.n ?? 0) + (l?.n ?? 0) };
   }
 
   async completeBatch(batchId: string): Promise<void> {
     await this.db.runAsync('DELETE FROM upload_queue WHERE batch_id=?', [batchId]);
+  }
+
+  async deadLetterRecords(batchId: string, rejects: { seq: number; reason: string; index?: number }[]): Promise<void> {
+    const q = await this.db.getFirstAsync<{ device_id: string; payload: string }>(
+      'SELECT device_id, payload FROM upload_queue WHERE batch_id=?', [batchId]);
+    if (!q) return;
+    const recs = JSON.parse(q.payload) as CaneRecord[];
+    await this.db.withExclusiveTransactionAsync(async (tx) => {
+      for (const rj of rejects) {
+        const rec = recs.find((r) => r.seq === rj.seq) ?? (rj.index !== undefined ? recs[rj.index] : undefined);
+        await tx.runAsync(
+          `INSERT OR REPLACE INTO dead_letters (device_id, seq, batch_id, reason, record_json, created_ms)
+           VALUES (?,?,?,?,?,?)`,
+          [q.device_id, rec?.seq ?? rj.seq, batchId, rj.reason, rec ? JSON.stringify(rec) : null, Date.now()]);
+      }
+    });
+  }
+
+  async listDeadLetters(): Promise<DeadLetter[]> {
+    return this.db.getAllAsync<DeadLetter>(
+      'SELECT device_id, seq, batch_id, reason, record_json, created_ms FROM dead_letters ORDER BY seq');
   }
 
   async failBatch(batchId: string, nextAttemptMs: number, error: string, dead: boolean): Promise<void> {
