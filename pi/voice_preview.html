@@ -8,6 +8,8 @@
   body { font-family: -apple-system, sans-serif; margin: 2rem; background: #111; color: #eee; }
   button { font-size: 1.2rem; padding: 0.8rem 1.2rem; margin: 0.4rem 0; width: 100%; border-radius: 10px; border: 0; }
   #enable { background: #2d7; color: #000; font-weight: bold; }
+  #auto { background: #357; color: #eee; }
+  #auto.on { background: #275; }
   .clip { background: #333; color: #eee; }
   .ok { outline: 3px solid #2d7; }
   .missing { outline: 3px solid #d54; }
@@ -19,13 +21,38 @@
 <p>Tap <b>Enable audio</b> first (the iPhone requires one tap before any sound can play), then tap a phrase to play its clip from the <code>voice/</code> folder.</p>
 <button id="enable">Enable audio</button>
 <div id="clips"></div>
+<button id="auto">Auto-play cane events: OFF</button>
 <div id="status"></div>
 <script>
 // The six phrase keys the cane uses (see config.py PHRASES). Looks for
 // voice/<key>.mp3 then voice/<key>.wav, served from the same folder as this page.
 const KEYS = ["dropped", "ask_ok", "help", "cancelled", "sos", "sit"];
+// Which logged cane event plays which clip in auto mode (see cane_reader.py log_event calls).
+const EVENT_CLIPS = { cane_down: "dropped", alert: "help", flow_cancelled: "cancelled" };
 const status = (m) => { document.getElementById("status").textContent += m + "\n"; };
 let enabled = false;
+
+async function playClip(key) {
+  for (const ext of ["mp3", "wav"]) {
+    const url = "voice/" + key + "." + ext;
+    try {
+      const r = await fetch(url, { method: "HEAD" });
+      if (!r.ok) continue;
+      const a = new Audio(url);
+      await a.play();
+      mark(key, true);
+      status("played " + url);
+      return true;
+    } catch (e) { /* try next extension */ }
+  }
+  mark(key, false);
+  status("MISSING voice/" + key + ".mp3 (or .wav) - generate or record it, then reload.");
+  return false;
+}
+function mark(key, ok) {
+  for (const b of document.querySelectorAll(".clip"))
+    if (b.textContent === key) { b.classList.toggle("ok", ok); b.classList.toggle("missing", !ok); }
+}
 
 document.getElementById("enable").onclick = () => {
   // Play a short silent buffer inside the tap so Safari unlocks audio for the page.
@@ -39,24 +66,54 @@ for (const key of KEYS) {
   const b = document.createElement("button");
   b.className = "clip";
   b.textContent = key;
-  b.onclick = async () => {
+  b.onclick = () => {
     if (!enabled) { status("Tap Enable audio first."); return; }
-    for (const ext of ["mp3", "wav"]) {
-      const url = "voice/" + key + "." + ext;
-      try {
-        const r = await fetch(url, { method: "HEAD" });
-        if (!r.ok) continue;
-        const a = new Audio(url);
-        await a.play();
-        b.classList.remove("missing"); b.classList.add("ok");
-        status("played " + url);
-        return;
-      } catch (e) { /* try next extension */ }
-    }
-    b.classList.add("missing");
-    status("MISSING voice/" + key + ".mp3 (or .wav) - generate or record it, then reload.");
+    playClip(key);
   };
   holder.appendChild(b);
+}
+
+// Auto mode: poll the cane's event feed (cane_server.py on the Pi) and play the
+// matching clip when a new event arrives. History is never replayed: the first
+// poll only marks where the feed is up to.
+let auto = false, lastSeq = null, timer = null;
+const autoBtn = document.getElementById("auto");
+autoBtn.onclick = () => {
+  auto = !auto;
+  autoBtn.textContent = "Auto-play cane events: " + (auto ? "ON" : "OFF");
+  autoBtn.classList.toggle("on", auto);
+  if (auto) {
+    if (!enabled) { status("Tap Enable audio first, or the phone will stay silent."); }
+    lastSeq = null;
+    poll();
+    timer = setInterval(poll, 2000);
+    status("Auto mode on: listening for cane events on this network.");
+  } else {
+    clearInterval(timer);
+  }
+};
+async function poll() {
+  let data;
+  try {
+    const r = await fetch("events?since=" + (lastSeq || 0));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    data = await r.json();
+  } catch (e) {
+    status("Cane feed unreachable - is cane_server.py running on the Pi and this page served from it?");
+    autoBtn.click();   // turn back off
+    return;
+  }
+  const evs = data.events || [];
+  if (lastSeq === null) {                       // first poll: baseline only, no replay
+    if (evs.length) lastSeq = evs[evs.length - 1].seq;
+    return;
+  }
+  for (const ev of evs) {
+    lastSeq = Math.max(lastSeq, ev.seq);
+    const clip = EVENT_CLIPS[ev.type];
+    status("cane event: " + ev.type);
+    if (clip && enabled) playClip(clip);
+  }
 }
 </script>
 </body>
