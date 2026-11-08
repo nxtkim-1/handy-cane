@@ -221,3 +221,24 @@ class RefreshToken(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.user_id"), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class EventExtra(Base):
+    """Optional extras sent with an event (cause/source). Separate table: device_events is not altered."""
+    __tablename__ = "event_extras"
+    event_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    cause: Mapped[str | None] = mapped_column(String)
+    source: Mapped[str | None] = mapped_column(String)
+
+
+class Escalation(Base):
+    """One row per caregiver-notification attempt for a high-severity open event."""
+    __tablename__ = "escalations"
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    event_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    patient_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    channel: Mapped[str] = mapped_column(String, nullable=False)  # webhook | log
+    sent_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    ok: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    error: Mapped[str | None] = mapped_column(Text)

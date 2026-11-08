@@ -12,14 +12,14 @@ from backend.app import models as m
 from backend.app.api.v1.reports import get_gemini_client
 from backend.app.core.db import Base, get_db
 from backend.app.main import create_app
+from backend.tests.conftest import make_test_engine
 from backend.app.reports.gemini_client import FakeGemini
 from backend.app.seed import seed
 
 
 @pytest.fixture(scope="module")
 def env():
-    eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(eng)
+    eng = make_test_engine()
     Session = sessionmaker(bind=eng, autoflush=False, expire_on_commit=False)
     with Session() as s:
         info = seed(s)

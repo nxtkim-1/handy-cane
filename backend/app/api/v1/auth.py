@@ -4,10 +4,11 @@ import uuid
 from datetime import datetime, timezone
 
 import jwt
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.app import ratelimit
 from backend.app.core.db import get_db
 from backend.app.core.security import (create_access_token, create_refresh_token, decode_token, hash_secret,
                                        verify_secret)
@@ -28,11 +29,16 @@ def _issue(db: Session, user: User) -> TokenOut:
 
 
 @router.post("/login", response_model=TokenOut)
-def login(body: LoginIn, db: Session = Depends(get_db)):
+def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+    rl_key = f"{body.email.strip().lower()}|{request.client.host if request.client else '?'}"
+    if ratelimit.login_failures.blocked(rl_key):
+        raise ApiError(429, "rate_limited", "Too many failed logins; try again in a few minutes")
     user = db.scalars(select(User).where(User.email == body.email.strip().lower())).first()
     ok = verify_secret(body.password, user.password_hash if user else _DUMMY_HASH)
     if not user or not ok or user.disabled_at is not None:
+        ratelimit.login_failures.hit(rl_key)
         raise ApiError(401, "invalid_credentials", "Incorrect email or password")
+    ratelimit.login_failures.clear(rl_key)
     out = _issue(db, user)
     audit(db, user.user_id, "login")
     db.commit()
