@@ -3,7 +3,7 @@
 The phone speaks short cues when the cane reports certain events. The cane (Pi, `pi/cane_server.py`) serves the event feed and the voice clips; the app only polls and plays.
 
 ## Pairing
-`POST /pair` with `{"code":"<pairing code>"}`. The response sets a `cane_session` cookie. The code is one-time; the app pairs once and sends `Cookie: cane_session=...` on every later request (feed and clips).
+`POST /pair` with `{"code":"<pairing code>"}`. The response sets a `cane_session` cookie. The Pi's code is constant for the Pi server session (the cookie value is the code), so repeated `POST /pair` with the same code succeeds; the app pairs once and sends `Cookie: cane_session=...` on every later request (feed and clips).
 
 ## Event feed
 `GET /events?since=<seq>` returns
@@ -23,8 +23,7 @@ Keys: `dropped`, `ask_ok`, `help`, `cancelled`, `sos`. Clip: `GET /voice/<key>.m
 | `flow_cancelled` (legacy) | `cancelled` |
 
 Current firmware logs `cue:<key>` right before its legacy twin (e.g. `cue:help` then
-`alert`). The feed plays the `cue:` event and suppresses a legacy twin for the same key
-within 5 sequence numbers, so a cue never plays twice. Legacy events without a recent
+`alert`). The feed plays the `cue:` event and suppresses one legacy twin per cue within 5 sequence numbers (a legacy event that plays also absorbs a `cue:` twin arriving within 2), so a cue never plays twice and a later incident is never swallowed. Legacy events without a recent
 `cue:` twin still play, so old firmware keeps working.
 | anything else, incl. `cue:<unknown>` | none (skipped) |
 
