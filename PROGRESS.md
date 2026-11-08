@@ -13,7 +13,7 @@ Plan: `app/MASTER.md`. Branch: `dev/software-mvp`. Run tests: `python -m pytest 
 - `cane/canesense/runtime.py` sampling loop (hardware injected) and `sim_hw.py` simulated sensor/button/buzzer
 - `cane/canelink/server.py` HTTP sync API: GET /info, POST /time, GET /pull, POST /ack (stdlib only)
 - `python -m cane.run_sim` runs a scripted session (walk, cancelled drop, escalated drop) and serves the API
-- 27 unit/end-to-end tests (`python -m pytest -q`)
+- 18 unit and end-to-end tests (`python -m pytest -q`)
 
 ## In progress (agents, own branches)
 - agent/backend: FastAPI API, ingest, auth, seed
