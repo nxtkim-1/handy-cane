@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+from pathlib import Path
+
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, create_engine
@@ -44,10 +47,21 @@ engine = make_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
+_TIMESCALE_SQL = Path(__file__).resolve().parents[2] / "migrations" / "002_timescale.sql"
+
+
 def init_db(eng: Engine | None = None) -> None:
     from backend.app import models  # noqa: F401  (register tables)
 
-    Base.metadata.create_all(eng or engine)
+    eng = eng or engine
+    Base.metadata.create_all(eng)
+    if eng.dialect.name == "postgresql":
+        # Hypertables + compression (idempotent). Plain PostgreSQL without TimescaleDB: skip, don't crash.
+        try:
+            with eng.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+                conn.exec_driver_sql(_TIMESCALE_SQL.read_text(encoding="utf-8"))
+        except Exception as e:  # noqa: BLE001
+            logging.getLogger(__name__).warning("TimescaleDB setup skipped: %s", str(e)[:200])
 
 
 def get_db():
