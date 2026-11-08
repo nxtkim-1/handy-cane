@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Body, Button, Card, H1, H2, Loading, Screen, SimulatedBadge } from '../../src/ui/kit';
 import { getApi, useApp, useSync } from '../../src/state/services';
-import { ACTIVE_LABEL, USUAL_TEXT, fmtAgo } from '../../src/ui/format';
+import { ACTIVE_LABEL, USUAL_TEXT, fmtAgo, last7Text } from '../../src/ui/format';
 
 export default function Home() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function Home() {
           <Body>{o.today.active_min} min so far ({o.today.coverage_h} h of cane data)</Body>
         )}
         <Body sub>
-          Last 7 days with enough data: {o.last_7_valid_days.active_min_median ?? 'no data'} min per day (median).
+          {last7Text(o.last_7_valid_days.active_min_median)}
         </Body>
         <Body sub>{USUAL_TEXT}</Body>
         {down && <Body>Less cane-active time than usual since {down.since}. This may mean you walked without the cane.</Body>}
