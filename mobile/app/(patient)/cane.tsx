@@ -1,17 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Badge, Body, Button, Card, ErrorText, Field, H1, H2, Screen, colors } from '../../src/ui/kit';
-import { getMockCane, getTransport, useApp, useSync } from '../../src/state/services';
+import { getCueFeed, getCueStatus, isCueFeedRunning, setCueStatusListener, stopCueFeed, getMockCane, getTransport, useApp, useSync } from '../../src/state/services';
 import { fmtAgo } from '../../src/ui/format';
 import type { LiveSample } from '../../src/types';
 
 export default function Cane() {
   const router = useRouter();
-  const { mock, caneUrl, setConfig } = useApp();
+  const { mock, caneUrl, feedUrl, pairCode, setConfig } = useApp();
   const sync = useSync();
   const [live, setLive] = useState<LiveSample | null>(null);
   const [liveOn, setLiveOn] = useState(false);
   const [liveErr, setLiveErr] = useState<string | null>(null);
+  const [cuesOn, setCuesOn] = useState(isCueFeedRunning());
+  const [cueStatus, setCueStatus] = useState<string | null>(getCueStatus());
+
+  useEffect(() => {
+    setCueStatusListener(setCueStatus);
+    return () => setCueStatusListener(null);
+  }, []);
+
+  const toggleCues = () => {
+    if (cuesOn) { stopCueFeed(); setCuesOn(false); return; }
+    setCuesOn(getCueFeed() !== null);
+  };
 
   useEffect(() => { sync.refreshStatus(); }, []);
 
@@ -51,6 +63,17 @@ export default function Cane() {
         <Card>
           <H2>Connection</H2>
           <Field label="Cane address" value={caneUrl} autoCapitalize="none" onChangeText={(t) => setConfig({ caneUrl: t })} />
+        </Card>
+      )}
+
+      {!mock && (
+        <Card>
+          <H2>Voice cues</H2>
+          <Field label="Cane feed address" value={feedUrl} autoCapitalize="none" autoCorrect={false} onChangeText={(t) => { setConfig({ feedUrl: t }); setCuesOn(false); }} />
+          <Field label="Pairing code" value={pairCode} autoCapitalize="none" autoCorrect={false} onChangeText={(t) => { setConfig({ pairCode: t }); setCuesOn(false); }} />
+          <Button label={cuesOn ? 'Turn voice cues off' : 'Turn voice cues on'} kind="secondary" onPress={toggleCues} />
+          {cuesOn && cueStatus === 'paired' && <Body sub>Paired. Listening for cues.</Body>}
+          {cuesOn && cueStatus !== 'paired' && <ErrorText>{cueStatus}</ErrorText>}
         </Card>
       )}
 
