@@ -59,8 +59,8 @@ export type EventStatus = 'open' | 'acknowledged' | 'dismissed';
 export interface EventItem {
   event_id: string;
   ts: string;
-  kind: 'potential_fall' | 'help_press' | 'sensor_fault';
-  outcome: 'cancelled_by_user' | 'unanswered' | 'help_requested' | 'none';
+  kind: 'potential_fall' | 'help_press' | 'help_request' | 'sensor_fault' | 'impact_only';
+  outcome: 'cancelled_by_user' | 'escalated' | 'acknowledged_on_cane' | 'unanswered' | 'help_requested' | 'none';
   status: EventStatus;
   time_quality: 'synced' | 'unsynced' | 'corrected';
   dismiss_reason: string | null;

@@ -3,12 +3,11 @@ import { Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Badge, Body, Button, Card, H1, H2, Loading, Screen, SimulatedBadge, colors } from '../../src/ui/kit';
-import { getApi, saveRefreshToken, useApp } from '../../src/state/services';
+import { getApi } from '../../src/state/services';
 import { fmtDateTime } from '../../src/ui/format';
 
 export default function Patients() {
   const router = useRouter();
-  const setUser = useApp((s) => s.setUser);
   const q = useQuery({ queryKey: ['patients'], queryFn: () => getApi().patients() });
   return (
     <Screen>
@@ -32,7 +31,6 @@ export default function Patients() {
           </Card>
         </Pressable>
       ))}
-      <Button label="Sign out" kind="secondary" onPress={async () => { await saveRefreshToken(null); setUser(null); router.replace('/sign-in'); }} />
     </Screen>
   );
 }

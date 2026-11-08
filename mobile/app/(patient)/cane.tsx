@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Badge, Body, Button, Card, ErrorText, Field, H1, H2, Screen, colors } from '../../src/ui/kit';
 import { getMockCane, getTransport, useApp, useSync } from '../../src/state/services';
 import { fmtAgo } from '../../src/ui/format';
 import type { LiveSample } from '../../src/types';
 
 export default function Cane() {
+  const router = useRouter();
   const { mock, caneUrl, setConfig } = useApp();
   const sync = useSync();
   const [live, setLive] = useState<LiveSample | null>(null);
@@ -68,8 +70,11 @@ export default function Cane() {
       {mock && (
         <Card>
           <H2>Demo</H2>
-          <Button label="Simulate a potential fall" kind="danger" onPress={() => getMockCane()?.triggerFall()} />
-          <Body sub style={{ color: colors.sub }}>Then press Sync now; the alert is uploaded with the other records.</Body>
+          <Button
+            label="Simulate a potential fall" kind="danger" loading={sync.syncing}
+            onPress={async () => { getMockCane()?.triggerFall(); await sync.run(); router.push('/alerts'); }}
+          />
+          <Body sub style={{ color: colors.sub }}>The cane records the fall, the phone syncs it, and you land on Alerts.</Body>
         </Card>
       )}
     </Screen>

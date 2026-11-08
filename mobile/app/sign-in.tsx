@@ -28,7 +28,7 @@ export default function SignIn() {
   }
 
   return (
-    <Screen>
+    <Screen topInset>
       <H1>Smart Cane</H1>
       <Body sub>Sign in to see cane-active time, alerts and reports.</Body>
       <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />

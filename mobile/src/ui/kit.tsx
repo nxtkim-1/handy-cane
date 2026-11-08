@@ -1,4 +1,7 @@
 import React from 'react';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { signOut, useApp } from '../state/services';
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps,
 } from 'react-native';
@@ -21,12 +24,39 @@ export const colors = {
 
 export const type = { body: 18, small: 16, h1: 28, h2: 22 };
 
-export function Screen({ children, scroll = true }: { children: React.ReactNode; scroll?: boolean }) {
+/** topInset: keep content clear of the status bar/notch when the screen has no app bar above it. */
+export function Screen({ children, scroll = true, topInset = false }: {
+  children: React.ReactNode; scroll?: boolean; topInset?: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+  const pad = topInset ? insets.top : 0;
   const inner = <View style={styles.screenInner}>{children}</View>;
   return scroll ? (
-    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 48 }}>{inner}</ScrollView>
+    <ScrollView style={[styles.screen, { paddingTop: pad }]} contentContainerStyle={{ paddingBottom: 48 + insets.bottom }}>
+      {inner}
+    </ScrollView>
   ) : (
-    <View style={styles.screen}>{inner}</View>
+    <View style={[styles.screen, { paddingTop: pad }]}>{inner}</View>
+  );
+}
+
+/** Top bar for signed-in screens: respects the notch, has Back, Profile and Sign out. */
+export function AppBar({ back = false }: { back?: boolean }) {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const user = useApp((s) => s.user);
+  const link = (label: string, onPress: () => void) => (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.barBtn}>
+      <Text style={styles.barBtnText}>{label}</Text>
+    </Pressable>
+  );
+  return (
+    <View style={[styles.bar, { paddingTop: insets.top + 8 }]}>
+      {back ? link('‹ Back', () => router.back()) : <Text style={styles.brand}>Smart Cane</Text>}
+      <View style={{ flex: 1 }} />
+      {user && link('Profile', () => router.push('/profile'))}
+      {user && link('Sign out', async () => { await signOut(); router.replace('/sign-in'); })}
+    </View>
   );
 }
 
@@ -133,6 +163,13 @@ export function Loading() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   screenInner: { padding: 16, gap: 12 },
+  bar: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingBottom: 8,
+    backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.grey,
+  },
+  brand: { fontSize: type.h2, fontWeight: '700', color: colors.text, paddingHorizontal: 8 },
+  barBtn: { minHeight: 48, minWidth: 48, paddingHorizontal: 10, justifyContent: 'center' },
+  barBtnText: { fontSize: type.small, fontWeight: '700', color: colors.primary },
   h1: { fontSize: type.h1, fontWeight: '700', color: colors.text },
   h2: { fontSize: type.h2, fontWeight: '700', color: colors.text, marginTop: 8 },
   body: { fontSize: type.body, color: colors.text, lineHeight: 26 },

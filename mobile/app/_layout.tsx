@@ -1,9 +1,8 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-const qc = new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient as qc } from '../src/state/queryClient';
 
 export default function RootLayout() {
   return (
