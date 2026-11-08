@@ -6,6 +6,8 @@ export interface CueFeedOptions {
   pairCode: string;
   fetchImpl?: typeof fetch;
   player?: CuePlaying;
+  /** Pairing/poll status for the UI: 'paired', an error message, or null once healthy again. */
+  onStatus?: (s: string | null) => void;
 }
 
 interface FeedEvent { seq: number; ts?: number; type: string }
@@ -15,36 +17,39 @@ export class CueFeed {
   private readonly pairCode: string;
   private readonly fetchImpl: typeof fetch;
   private readonly player: CuePlaying;
-  private cookie: string | null = null;
+  private readonly onStatus: (s: string | null) => void;
+  private token: string | null = null; // bearer session token, memory only
+  private warnedMsg: string | null = null; // last status copy surfaced; re-surfaced only when it changes
   private cursor: number | null = null; // null until first successful poll
   private pendingTwin: Record<string, number> = {}; // cue key -> seq of a cue: event whose legacy twin has not arrived yet
   private pendingCue: Record<string, number> = {}; // cue key -> seq of a legacy event that played; its cue: twin may follow
-  private cueSeen = false; // true once any cue: event has been observed (even in history): firmware is new, legacy events never play
+  private cueSeen = false; // true once any cue: event has been observed (even in history) or a poll carried "fw": firmware is new, legacy events never play
   private baselining = true; // true until a poll returns less than a full page (history is never replayed)
   private timer: ReturnType<typeof setInterval> | null = null;
   private polling = false;
-  private warned = false;
 
   constructor(o: CueFeedOptions) {
     this.baseUrl = o.baseUrl.replace(/\/+$/, '');
     this.pairCode = o.pairCode;
     this.fetchImpl = o.fetchImpl ?? ((...a) => fetch(...a));
     this.player = o.player ?? cuePlayer;
+    this.onStatus = o.onStatus ?? (() => {});
   }
 
-  /** POST /pair once; captures the cane_session cookie. Throws on failure. */
+  /** POST /pair once; stores the bearer session token from the JSON body. Throws on failure. */
   async pair(): Promise<void> {
-    if (this.cookie) return;
+    if (this.token) return;
     const res = await this.fetchImpl(`${this.baseUrl}/pair`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: this.pairCode }),
     });
     if (!res.ok) throw new Error(`pair failed (HTTP ${res.status})`);
-    const raw = res.headers.get('set-cookie') ?? '';
-    const m = /(cane_session=[^;,\s]+)/.exec(raw);
-    if (!m) throw new Error('pair response had no cane_session cookie');
-    this.cookie = m[1];
+    let session: unknown;
+    try { session = ((await res.json()) as { session?: unknown }).session; } catch { /* handled below */ }
+    if (typeof session !== 'string' || session === '') throw new Error('pair response had no session token');
+    this.token = session;
+    this.onStatus('paired');
   }
 
   start(intervalMs = 1000): void {
@@ -62,17 +67,21 @@ export class CueFeed {
   async poll(): Promise<void> {
     if (this.polling) return;
     this.polling = true;
+    let pairing = false;
     try {
+      pairing = true;
       await this.pair();
+      pairing = false;
       const since = this.cursor ?? 0;
       const res = await this.fetchImpl(`${this.baseUrl}/events?since=${since}`, {
-        headers: { Cookie: this.cookie as string },
+        headers: { Authorization: `Bearer ${this.token as string}` },
       });
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) this.cookie = null; // re-pair next time
+        if (res.status === 401 || res.status === 403) this.token = null; // session lost: re-pair on the next poll
         throw new Error(`events failed (HTTP ${res.status})`);
       }
-      const body = (await res.json()) as { events?: FeedEvent[] };
+      const body = (await res.json()) as { events?: FeedEvent[]; fw?: unknown };
+      if (typeof body.fw === 'string' && body.fw !== '') this.cueSeen = true; // explicit capability signal: new firmware from the first poll
       const events = [...(body.events ?? [])].sort((a, b) => a.seq - b.seq);
       const first = this.baselining;
       let max = this.cursor ?? 0;
@@ -95,14 +104,18 @@ export class CueFeed {
           else if (play) this.pendingCue[key] = ev.seq; // only legacy events that actually played
         }
         if (isCue) this.cueSeen = true;
-        if (play) this.player.play(key, { baseUrl: this.baseUrl, cookie: this.cookie as string });
+        if (play) this.player.play(key, { baseUrl: this.baseUrl, token: this.token as string });
       }
       this.cursor = max;
       if (first) this.baselining = events.length >= 200; // Pi pages at 200 rows; keep marking until caught up
-      this.warned = false;
+      if (this.warnedMsg !== null) this.onStatus(null);
+      this.warnedMsg = null;
     } catch (e) {
-      if (!this.warned) {
-        this.warned = true;
+      // user-facing copy only; the technical detail stays in the warn below
+      const msg = pairing ? 'Could not pair. Check the address and pairing code.' : 'Lost the cane feed. Retrying.';
+      if (this.warnedMsg !== msg) {
+        this.warnedMsg = msg;
+        this.onStatus(msg);
         console.warn('[cues] feed poll failed, will retry:', e instanceof Error ? e.message : e);
       }
     } finally {
