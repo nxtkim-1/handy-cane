@@ -25,3 +25,7 @@ node_modules/
 .claude/worktrees/
 # Local dev DBs
 *.db
+
+.env
+.env.*
+!.env.example
