@@ -22,8 +22,14 @@ Plan: `app/MASTER.md`. Branch: `dev/software-mvp`. Run tests: `python -m pytest 
 - Wired together: `POST /v1/patients/{pid}/reports/generate` builds the input from daily_metrics, uses Gemini only
   if GEMINI_API_KEY is set (else template), validates, stores. Tested end to end on the seeded patient.
 
-## In progress
-- agent/mobile: Expo app with mock cane transport (still running)
+- agent/mobile: Expo app (mock cane + mock backend demo mode, HTTP transport, pull sync, upload queue, screens).
+  tsc clean, 18 jest tests. Not yet run on a device/emulator; SqliteStore untested. Run: cd mobile; npm install --legacy-peer-deps; npx expo start
+  (Scaffold files mobile/.claude/settings.json and AGENTS.md were deliberately not kept.)
+
+## Next
+- Run the app in Expo and fix whatever breaks; test SqliteStore on a device
+- Point the app's HTTP transport at `python -m cane.run_sim`, and the upload at a running uvicorn, for a true end-to-end run
+- Real Pi drivers (needs hardware); real Gemini key check
 
 ## Findings
 - MASTER's suggested sim decline (2%/wk active, 1.5%/wk bout) is too small for the detector to flag
