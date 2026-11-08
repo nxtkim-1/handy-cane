@@ -1,5 +1,6 @@
 """Runnable cane simulator: python -m cane.run_sim [--port 8765] [--db cane.db]
 
+Each run appends a fresh session (data ends "now") to cane_sim.db, so restarting gives new alerts.
 Plays a scripted session (walk, idle, drop, lying still, button cancel, then a second
 un-cancelled drop) in fast-forward, then keeps serving the sync API so a phone, the mobile
 app's HTTP transport, or curl can pull the data:
@@ -35,11 +36,14 @@ def run_session(store: Store, start_ms: int = 1_790_000_000_000 // 60000 * 60000
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--db", default=":memory:")
+    ap.add_argument("--db", default="cane_sim.db", help="kept on disk so sequence numbers survive restarts")
     a = ap.parse_args()
-    clock = [1_790_000_000_000 // 60000 * 60000]
-    store = Store(a.db, device_id="cane-sim", sensor_model="simulated", now_ms=lambda: clock[0])
-    buzzer = run_session(store)
+    # Play the session so it ENDS about now: the data then lands on today, not on a fixed old date.
+    now_ms = int(time.time() * 1000)
+    total_s = sum(secs for _, secs in SCRIPT) + 10
+    start_ms = now_ms // 60000 * 60000 - (int(total_s // 60) + 1) * 60000
+    store = Store(a.db, device_id="cane-sim", sensor_model="simulated", now_ms=lambda: now_ms)
+    buzzer = run_session(store, start_ms=start_ms)
     print("session done; buzzer transitions:", buzzer.log)
     print("info:", store.info())
     srv = serve(store, port=a.port)

@@ -1,5 +1,8 @@
 import type { IngestBatch, IngestResponse } from '../types';
 import { IngestError } from '../sync/uploadWorker';
+import {
+  adaptBaseline, adaptDaily, adaptEvent, adaptOverview, adaptPatientListItem, adaptReport, adaptUser,
+} from './adapt';
 import type {
   Baseline, DailyMetric, EventItem, Overview, Patient, PatientListItem, Report, Tokens, User,
 } from './types';
@@ -79,22 +82,42 @@ export class HttpApiClient implements ApiClient {
     const user = await this.me();
     return { user, tokens: t };
   }
-  me() { return this.call<User>('GET', '/v1/me'); }
-  patients() { return this.call<PatientListItem[]>('GET', '/v1/patients'); }
-  overview(pid: string) { return this.call<Overview>('GET', `/v1/patients/${pid}/overview`); }
-  daily(pid: string, from: string, to: string) {
-    return this.call<DailyMetric[]>('GET', `/v1/patients/${pid}/daily?from=${from}&to=${to}`);
+  // The backend's JSON differs from the app's types in several places; adapt.ts maps it (and is tested
+  // against captured live responses).
+  async me(): Promise<User> { return adaptUser(await this.call<any>('GET', '/v1/me')); }
+  async patients(): Promise<PatientListItem[]> {
+    const rows = await this.call<any[]>('GET', '/v1/patients');
+    // The list endpoint has no alert/sync summary, so build it from each patient's overview.
+    return Promise.all(rows.map(async (p) => {
+      try {
+        return adaptPatientListItem(p, await this.call<any>('GET', `/v1/patients/${p.patient_id}/overview`));
+      } catch {
+        return adaptPatientListItem(p);
+      }
+    }));
   }
-  baseline(pid: string) { return this.call<Baseline | null>('GET', `/v1/patients/${pid}/baseline`); }
-  events(pid: string, status?: string) {
-    return this.call<EventItem[]>('GET', `/v1/patients/${pid}/events${status ? `?status=${status}` : ''}`);
+  async overview(pid: string): Promise<Overview> {
+    return adaptOverview(await this.call<any>('GET', `/v1/patients/${pid}/overview`));
   }
-  patchEvent(eventId: string, body: { status: 'acknowledged' | 'dismissed'; reason?: string; note?: string }) {
-    return this.call<EventItem>('PATCH', `/v1/events/${eventId}`, body);
+  async daily(pid: string, from: string, to: string): Promise<DailyMetric[]> {
+    return adaptDaily(await this.call<any[]>('GET', `/v1/patients/${pid}/daily?from=${from}&to=${to}`));
   }
-  reports(pid: string) { return this.call<Report[]>('GET', `/v1/patients/${pid}/reports`); }
-  generateReport(pid: string, periodEnd: string) {
-    return this.call<Report>('POST', `/v1/patients/${pid}/reports/generate`, { period_end: periodEnd });
+  async baseline(pid: string): Promise<Baseline | null> {
+    return adaptBaseline(await this.call<any>('GET', `/v1/patients/${pid}/baseline`));
+  }
+  async events(pid: string, status?: string): Promise<EventItem[]> {
+    const rows = await this.call<any[]>('GET', `/v1/patients/${pid}/events${status ? `?status=${status}` : ''}`);
+    return rows.map(adaptEvent);
+  }
+  async patchEvent(eventId: string, body: { status: 'acknowledged' | 'dismissed'; reason?: string; note?: string }): Promise<EventItem> {
+    return adaptEvent(await this.call<any>('PATCH', `/v1/events/${eventId}`, body));
+  }
+  async reports(pid: string): Promise<Report[]> {
+    return (await this.call<any[]>('GET', `/v1/patients/${pid}/reports`)).map(adaptReport);
+  }
+  async generateReport(pid: string, periodEnd: string): Promise<Report> {
+    const g = await this.call<{ report_id: string }>('POST', `/v1/patients/${pid}/reports/generate`, { period_end: periodEnd });
+    return adaptReport(await this.call<any>('GET', `/v1/reports/${g.report_id}`));
   }
   async postIngestBatch(batch: IngestBatch): Promise<IngestResponse> {
     try {
