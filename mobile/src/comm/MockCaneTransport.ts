@@ -17,6 +17,19 @@ export interface MockOptions {
   failAckOnCall?: number;
 }
 
+/** Mirrors pi/link.py fall_resolved: the cause is decided by the impact flag, never defaulted. */
+export function fallResolvedRecord(a: {
+  seq: number; event_id: string; boot_id: string; ts: string; outcome: 'cancelled_by_user' | 'escalated';
+  impact: boolean; peak_g: number; tilt_deg: number; still_s: number; confidence?: number;
+}): CaneEventRecord {
+  return {
+    type: 'event', seq: a.seq, event_id: a.event_id, boot_id: a.boot_id, ts: a.ts, time_quality: 'corrected',
+    kind: 'potential_fall', outcome: a.outcome, cause: a.impact ? 'cane_down_impact' : 'cane_down_still',
+    source: 'cane_reader', confidence: a.confidence ?? 0.7, peak_g: a.peak_g, tilt_deg: a.tilt_deg,
+    still_s: a.still_s, raw_snippet_b64: null,
+  };
+}
+
 function rng(seed: number) {
   let s = seed >>> 0;
   return () => {
@@ -65,12 +78,10 @@ export class MockCaneTransport implements CaneTransport {
       };
       this.records.push(m);
       if (fallAt > 0 && i === fallAt) {
-        this.records.push({
-          type: 'event', seq: ++seq, event_id: '0b5f7a1c-3c9e-4d2a-9f11-8e6d2b4c7a90',
-          boot_id: bootId, ts, time_quality: 'corrected', kind: 'potential_fall',
-          outcome: 'cancelled_by_user', confidence: 0.62, peak_g: 4.1, tilt_deg: 84,
-          still_s: 11.5, raw_snippet_b64: null,
-        });
+        this.records.push(fallResolvedRecord({
+          seq: ++seq, event_id: '0b5f7a1c-3c9e-4d2a-9f11-8e6d2b4c7a90', boot_id: bootId, ts,
+          outcome: 'cancelled_by_user', impact: true, peak_g: 4.1, tilt_deg: 84, still_s: 11.5, confidence: 0.62,
+        }));
       }
     }
   }
@@ -110,14 +121,26 @@ export class MockCaneTransport implements CaneTransport {
     };
   }
 
-  /** Demo helper: raise a potential fall now. */
-  triggerFall(): CaneEventRecord {
+  /** Demo helper: the SOS button was held (firmware help_request: escalated, cause sos_hold). */
+  triggerHelpRequest(): CaneEventRecord {
     const seq = (this.records[this.records.length - 1]?.seq ?? 0) + 1;
     const e: CaneEventRecord = {
       type: 'event', seq, event_id: `evt-${seq}`, boot_id: 'mock-boot', ts: new Date().toISOString(),
-      time_quality: 'corrected', kind: 'potential_fall', outcome: 'unanswered', confidence: 0.7,
-      peak_g: 4.4, tilt_deg: 80, still_s: 12, raw_snippet_b64: null,
+      time_quality: 'corrected', kind: 'help_request', outcome: 'escalated', cause: 'sos_hold',
+      source: 'cane_reader', confidence: 1, peak_g: 0, tilt_deg: 0, still_s: 0, raw_snippet_b64: null,
     };
+    this.records.push(e);
+    this.alertCbs.forEach((c) => c(e));
+    return e;
+  }
+
+  /** Demo helper: raise a potential fall now. */
+  triggerFall(): CaneEventRecord {
+    const seq = (this.records[this.records.length - 1]?.seq ?? 0) + 1;
+    const e = fallResolvedRecord({
+      seq, event_id: `evt-${seq}`, boot_id: 'mock-boot', ts: new Date().toISOString(),
+      outcome: 'escalated', impact: true, peak_g: 4.4, tilt_deg: 80, still_s: 12,
+    });
     this.records.push(e);
     this.alertCbs.forEach((c) => c(e));
     return e;
