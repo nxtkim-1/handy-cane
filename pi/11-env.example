@@ -1,0 +1,7 @@
+# Copy to .env and fill in. Never commit .env to GitHub.
+GEMINI_API_KEY=paste-key-from-aistudio.google.com
+CANE_DISCORD_WEBHOOK=paste-webhook-url
+CANE_SOURCE=gpio
+GEMINI_MODEL=gemini-2.5-flash
+# set to 1 only if using a plain breadboard push button instead of the Grove button
+CANE_BUTTON_PULL_UP=0
