@@ -19,6 +19,7 @@ export class CueFeed {
   private cursor: number | null = null; // null until first successful poll
   private pendingTwin: Record<string, number> = {}; // cue key -> seq of a cue: event whose legacy twin has not arrived yet
   private pendingCue: Record<string, number> = {}; // cue key -> seq of a legacy event that played; its cue: twin may follow
+  private cueSeen = false; // true once any cue: event has been observed (even in history): firmware is new, legacy events never play
   private baselining = true; // true until a poll returns less than a full page (history is never replayed)
   private timer: ReturnType<typeof setInterval> | null = null;
   private polling = false;
@@ -86,11 +87,14 @@ export class CueFeed {
           const lg = this.pendingCue[key];
           if (lg !== undefined && ev.seq - lg <= 2) { play = false; delete this.pendingCue[key]; } // legacy came first
           else this.pendingTwin[key] = ev.seq;
+        } else if (this.cueSeen) {
+          play = false; // new firmware: cue: twins cover legacy events; twinless ones (impact cane_down) are intentionally silent
         } else {
           const c = this.pendingTwin[key];
           if (c !== undefined && ev.seq - c < 5) { play = false; delete this.pendingTwin[key]; } // twin consumed once
           else if (play) this.pendingCue[key] = ev.seq; // only legacy events that actually played
         }
+        if (isCue) this.cueSeen = true;
         if (play) this.player.play(key, { baseUrl: this.baseUrl, cookie: this.cookie as string });
       }
       this.cursor = max;
