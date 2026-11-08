@@ -56,6 +56,7 @@ class Cane:
             os.makedirs(os.path.dirname(os.path.abspath(C.LINK_DB_PATH)), exist_ok=True)
             store = Store(C.LINK_DB_PATH, device_id=C.DEVICE_ID,
                           sensor_model=getattr(hw, "kind", "LIS3DH"), fw_version=C.FW_VERSION)
+            store.register_boot()
             self.link = CaneLink(store, self.det.up)
         except Exception as e:
             print("[link] outbox unavailable:", repr(e))
