@@ -20,7 +20,7 @@ export default function PatientDetail() {
 
       <H2>Overview</H2>
       <Card>
-        <Body>{ACTIVE_LABEL}, last 7 days with enough data: {o.last_7_valid_days.active_min_median ?? 'no data'} min per day (median, {o.last_7_valid_days.valid_days} days)</Body>
+        <Body>{o.last_7_valid_days.active_min_median === null ? `${ACTIVE_LABEL}: not enough data yet.` : `${ACTIVE_LABEL}, last 7 days with enough data: ${o.last_7_valid_days.active_min_median} min per day (median, ${o.last_7_valid_days.valid_days} days)`}</Body>
         <Body sub>{USUAL_TEXT}</Body>
         {o.change_flags.map((f) => (
           <Body key={f.metric}>
