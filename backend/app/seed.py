@@ -29,7 +29,9 @@ ACCOUNTS = {
     "other_clinician": ("clinician2@demo.example", "Dr. Other Clinician", "clinician"),
     "patient": ("patient@demo.example", "Demo Patient", "patient"),
     "caregiver": ("caregiver@demo.example", "Demo Caregiver", "caregiver"),
+    "live": ("live@demo.example", "Live Demo Patient", "patient"),
 }
+LIVE_PATIENT_NAME = "Live Demo"
 
 
 def _user(db: Session, key: str) -> m.User:
@@ -107,7 +109,34 @@ def load_history(db: Session, patient: m.Patient, device: m.Device, seed: int = 
     return seq
 
 
+def seed_live(db: Session) -> str:
+    """The patient the REAL cane belongs to: not simulated, no history, consent recorded. Idempotent.
+
+    Kept apart from the simulated patient so real alerts never mix into simulated data (MASTER 19.2).
+    """
+    p = db.scalars(select(m.Patient).where(m.Patient.display_name == LIVE_PATIENT_NAME)).first()
+    if p is not None:
+        return str(p.patient_id)
+    live, clin = _user(db, "live"), _user(db, "clinician")
+    today = datetime.now(timezone.utc).astimezone(ZoneInfo(TZ)).date()
+    p = m.Patient(user_id=live.user_id, display_name=LIVE_PATIENT_NAME, timezone=TZ, report_anchor=today,
+                  is_simulated=False, consent_at=datetime.now(timezone.utc), consent_version="demo-v1")
+    db.add(p)
+    db.flush()
+    for u, rel in ((live, "self"), (clin, "clinician")):
+        db.add(m.CareTeam(patient_id=p.patient_id, user_id=u.user_id, relation=rel, can_dismiss_events=True,
+                          granted_by=live.user_id))
+    db.commit()
+    return str(p.patient_id)
+
+
 def seed(db: Session, reset: bool = False) -> dict:
+    out = _seed_simulated(db, reset)
+    out["live_patient_id"] = seed_live(db)
+    return out
+
+
+def _seed_simulated(db: Session, reset: bool = False) -> dict:
     existing = db.scalars(select(m.Patient).where(m.Patient.display_name == "Demo Patient (simulated)")).first()
     if existing and not reset:
         return {"status": "already_seeded", "patient_id": str(existing.patient_id)}
