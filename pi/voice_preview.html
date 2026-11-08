@@ -107,6 +107,7 @@ for (const key of KEYS) {
 // matching clip when a new event arrives. History is never replayed: the first
 // poll only marks where the feed is up to.
 let auto = false, lastSeq = null, timer = null;
+const recentCue = {};   // cue key -> last seq it played, for legacy dedupe
 const autoBtn = document.getElementById("auto");
 autoBtn.onclick = () => {
   auto = !auto;
@@ -141,7 +142,16 @@ async function poll() {
   }
   for (const ev of evs) {
     lastSeq = Math.max(lastSeq, ev.seq);
-    const clip = EVENT_CLIPS[ev.type];
+    let clip;
+    if (ev.type.startsWith("cue:")) {
+      clip = ev.type.slice(4);
+      recentCue[clip] = ev.seq;          // remember: legacy twin is already covered
+    } else {
+      clip = EVENT_CLIPS[ev.type];
+      // firmware logs cue:<key> right before its legacy twin (e.g. cue:help + alert);
+      // skip the legacy one so a cue never plays twice
+      if (clip && recentCue[clip] !== undefined && ev.seq - recentCue[clip] < 5) clip = null;
+    }
     status("cane event: " + ev.type);
     if (clip && enabled) playClip(clip);
   }
