@@ -25,6 +25,7 @@ def make_handler(store: Store, live: LiveTracker | None = None):
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
+            self.send_header("Access-Control-Allow-Origin", "*")   # lets the Expo web build talk to the sim
             self.end_headers()
             self.wfile.write(data)
 
@@ -49,6 +50,13 @@ def make_handler(store: Store, live: LiveTracker | None = None):
                 except ValueError:
                     return self._send(400, {"error": "bad_params"})
             self._send(404, {"error": "not_found"})
+
+        def do_OPTIONS(self):  # browser pre-flight
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
 
         def do_POST(self):
             try:

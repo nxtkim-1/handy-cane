@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -33,6 +34,10 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="Smart Cane API", version="0.1.0", lifespan=lifespan,
                   description="Prototype - not a medical device. Mobility trends only.")
+
+    # Browser (Expo web) access for testing. Auth is a bearer token, not cookies, so "*" without credentials is safe.
+    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+                       allow_credentials=False)
 
     @app.exception_handler(HTTPException)
     async def http_exc(_: Request, exc: HTTPException):
