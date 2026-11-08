@@ -63,26 +63,26 @@ describe('CueFeed', () => {
       { seq: 6, ts: 6, type: 'flow_cancelled' },
     ]);
     await t.feed.poll();
-    expect(t.played).toEqual(['ask_ok', 'sos', 'cancelled']);
+    expect(t.played).toEqual(['ask_ok', 'sos']); // flow_cancelled is legacy and a cue: was seen: silent
     await t.feed.poll();
-    expect(t.played).toEqual(['ask_ok', 'sos', 'cancelled']); // no replay
+    expect(t.played).toEqual(['ask_ok', 'sos']); // no replay
   });
 
-  test('legacy twin of a cue event does not play twice; legacy-only event still plays', async () => {
+  test('legacy twin of a cue event does not play twice; legacy-only event is silent once a cue: was seen', async () => {
     const t = setup();
     await t.feed.poll(); // baseline
     // new firmware: cue:dropped immediately followed by legacy cane_down
     t.setEvents([{ seq: 1, ts: 1, type: 'cue:dropped' }, { seq: 2, ts: 2, type: 'cane_down' }]);
     await t.feed.poll();
     expect(t.played).toEqual(['dropped']);
-    // old firmware path: legacy event alone still plays
+    // new firmware: twinless legacy event (impact fall) stays silent
     t.setEvents([
       { seq: 1, ts: 1, type: 'cue:dropped' },
       { seq: 2, ts: 2, type: 'cane_down' },
       { seq: 9, ts: 9, type: 'cane_down' },
     ]);
     await t.feed.poll();
-    expect(t.played).toEqual(['dropped', 'dropped']);
+    expect(t.played).toEqual(['dropped']);
   });
 
   test('poll failure does not crash or advance the cursor', async () => {
@@ -151,12 +151,34 @@ describe('CueFeed', () => {
       await t.feed.poll();
       expect(t.played).toEqual(['help', 'help', 'help']);
     });
-    test('a second legacy-only event after a consumed twin still plays', async () => {
+    test('a second legacy-only event after a cue: twin is silent (new firmware)', async () => {
       const t = setup();
       await t.feed.poll();
       t.setEvents([{ seq: 1, ts: 1, type: 'cue:help' }, { seq: 2, ts: 2, type: 'alert' }, { seq: 3, ts: 3, type: 'alert' }]);
       await t.feed.poll();
-      expect(t.played).toEqual(['help', 'help']);
+      expect(t.played).toEqual(['help']);
+    });
+    test('old firmware (no cue: ever seen): impact cane_down plays dropped', async () => {
+      const t = setup();
+      await t.feed.poll();
+      t.setEvents([{ seq: 1, ts: 1, type: 'cane_down' }]);
+      await t.feed.poll();
+      expect(t.played).toEqual(['dropped']);
+    });
+    test('new firmware: impact cane_down after any cue: event plays nothing', async () => {
+      const t = setup();
+      await t.feed.poll();
+      t.setEvents([{ seq: 1, ts: 1, type: 'cue:ask_ok' }, { seq: 20, ts: 20, type: 'cane_down' }]);
+      await t.feed.poll();
+      expect(t.played).toEqual(['ask_ok']);
+    });
+    test('a cue: event seen only in baseline history still switches to new-firmware mode', async () => {
+      const t = setup();
+      t.setEvents([{ seq: 1, ts: 1, type: 'cue:help' }]);
+      await t.feed.poll();
+      t.setEvents([{ seq: 1, ts: 1, type: 'cue:help' }, { seq: 30, ts: 30, type: 'cane_down' }]);
+      await t.feed.poll();
+      expect(t.played).toEqual([]);
     });
     test('legacy event arriving before its cue twin plays once', async () => {
       const t = setup();
