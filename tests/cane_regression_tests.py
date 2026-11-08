@@ -148,6 +148,19 @@ cane, con = fresh_cane([(150, 0, 0, 1), (250, 1, 0, 0), (200, 0, 0, 1)], 6)
 types = [r[0] for r in con.execute("SELECT type FROM events ORDER BY ts")]
 check("pickup cancels flow", "cane_down" in types and "flow_cancelled" in types, types)
 
+# 8. graceful shutdown: close() stops every worker thread (no daemon left touching stderr at exit)
+_stop_active()
+C.SOURCE = "fake:" + os.path.join(TMP, "scenario_1.csv")
+hw = hardware.open_cane()
+workers = list(hw._threads)
+hw.beep(3)                                   # one-shot tone path must also be tracked/stopped
+t0 = time.time()
+hw.close()
+check("close() stops worker threads promptly",
+      bool(workers) and not any(t.is_alive() for t in workers) and time.time() - t0 < 2.0,
+      [t.name for t in workers if t.is_alive()])
+check("close() is idempotent", hw.close() is None)
+
 _stop_active()
 shutil.rmtree(TMP, ignore_errors=True)
 fails = [n for n, ok, _ in RESULTS if not ok]
