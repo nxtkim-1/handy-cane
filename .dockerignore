@@ -1,0 +1,7 @@
+.git
+.claude
+mobile
+node_modules
+**/__pycache__
+*.db
+.env
