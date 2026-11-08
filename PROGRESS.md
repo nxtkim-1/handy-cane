@@ -9,7 +9,16 @@ Plan: `app/MASTER.md`. Branch: `dev/software-mvp`. Run tests: `python -m pytest 
 - `backend/app/analytics/stats.py` - baseline (median/MAD), robust z, rolling median, change flags
   (rolling-z + CUSUM), Theil-Sen trend, period comparison. Missing days stay NaN, never zero.
 - `backend/sim/generate.py` - labelled simulated 8-week patient (`is_simulated=True`)
-- 14 unit tests
+- `cane/canesense/store.py` SQLite WAL outbox: never-reused seq, boot_id, time_quality + phone time-sync correction
+- `cane/canesense/runtime.py` sampling loop (hardware injected) and `sim_hw.py` simulated sensor/button/buzzer
+- `cane/canelink/server.py` HTTP sync API: GET /info, POST /time, GET /pull, POST /ack (stdlib only)
+- `python -m cane.run_sim` runs a scripted session (walk, cancelled drop, escalated drop) and serves the API
+- 27 unit/end-to-end tests (`python -m pytest -q`)
+
+## In progress (agents, own branches)
+- agent/backend: FastAPI API, ingest, auth, seed
+- agent/reports: Gemini report pipeline, validator, template fallback
+- agent/mobile: Expo app with mock cane transport
 
 ## Findings
 - MASTER's suggested sim decline (2%/wk active, 1.5%/wk bout) is too small for the detector to flag
