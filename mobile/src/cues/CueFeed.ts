@@ -17,7 +17,9 @@ export class CueFeed {
   private readonly player: CuePlaying;
   private cookie: string | null = null;
   private cursor: number | null = null; // null until first successful poll
-  private recentCue: Record<string, number> = {}; // cue key -> last seq it played, for legacy dedupe
+  private pendingTwin: Record<string, number> = {}; // cue key -> seq of a cue: event whose legacy twin has not arrived yet
+  private pendingCue: Record<string, number> = {}; // cue key -> seq of a legacy event that played; its cue: twin may follow
+  private baselining = true; // true until a poll returns less than a full page (history is never replayed)
   private timer: ReturnType<typeof setInterval> | null = null;
   private polling = false;
   private warned = false;
@@ -71,21 +73,28 @@ export class CueFeed {
       }
       const body = (await res.json()) as { events?: FeedEvent[] };
       const events = [...(body.events ?? [])].sort((a, b) => a.seq - b.seq);
-      const first = this.cursor === null;
+      const first = this.baselining;
       let max = this.cursor ?? 0;
       for (const ev of events) {
-        if (ev.seq <= (this.cursor ?? 0) && !first) continue;
+        if (ev.seq <= (this.cursor ?? 0)) continue;
         if (ev.seq > max) max = ev.seq;
-        if (first) continue; // history: mark only
-        let key = mapCue(ev.type);
-        if (ev.type.startsWith('cue:')) {
-          if (key) this.recentCue[key] = ev.seq; // remember: legacy twin is already covered
-        } else if (key && this.recentCue[key] !== undefined && ev.seq - this.recentCue[key] < 5) {
-          key = null; // firmware logs cue:<key> right before its legacy twin; never play twice
+        const key = mapCue(ev.type);
+        if (!key) continue;
+        const isCue = ev.type.startsWith('cue:');
+        let play = !first; // history: mark only (but still track twins across the boundary)
+        if (isCue) {
+          const lg = this.pendingCue[key];
+          if (lg !== undefined && ev.seq - lg <= 2) { play = false; delete this.pendingCue[key]; } // legacy came first
+          else this.pendingTwin[key] = ev.seq;
+        } else {
+          const c = this.pendingTwin[key];
+          if (c !== undefined && ev.seq - c < 5) { play = false; delete this.pendingTwin[key]; } // twin consumed once
+          else if (play) this.pendingCue[key] = ev.seq; // only legacy events that actually played
         }
-        if (key) this.player.play(key, { baseUrl: this.baseUrl, cookie: this.cookie as string });
+        if (play) this.player.play(key, { baseUrl: this.baseUrl, cookie: this.cookie as string });
       }
       this.cursor = max;
+      if (first) this.baselining = events.length >= 200; // Pi pages at 200 rows; keep marking until caught up
       this.warned = false;
     } catch (e) {
       if (!this.warned) {
