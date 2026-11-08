@@ -124,6 +124,7 @@ class Cane:
         if f["alerted"] and now - f["last_help"] > C.REPEAT_HELP_S:
             f["last_help"] = now
             voice.say("help")
+            db.log_event(self.con, "cue:help")        # phone mirrors every spoken repeat (it may have missed the first)
 
     # ---------- button ----------
     def on_button(self, kind, now):
