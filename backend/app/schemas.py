@@ -100,9 +100,12 @@ class IngestBatchIn(BaseModel):
     records: list[dict]  # validated one by one so a single bad record does not fail the batch
 
 
+MAX_SEQ = 2**62  # stays inside a signed 64-bit column on every database
+
+
 class MinuteRecordIn(BaseModel):
     type: Literal["minute"]
-    seq: int = Field(ge=0)
+    seq: int = Field(ge=0, le=MAX_SEQ)
     boot_id: uuid.UUID
     ts: datetime
     time_quality: TimeQuality
@@ -122,7 +125,7 @@ class MinuteRecordIn(BaseModel):
 
 class EventRecordIn(BaseModel):
     type: Literal["event"]
-    seq: int = Field(ge=0)
+    seq: int = Field(ge=0, le=MAX_SEQ)
     event_id: uuid.UUID
     boot_id: uuid.UUID
     ts: datetime

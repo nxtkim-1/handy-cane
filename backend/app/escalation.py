@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Callable
 from zoneinfo import ZoneInfo
 
@@ -45,8 +46,11 @@ def build_message(event: DeviceEvent, patient: Patient, severity: str) -> str:
     except Exception:
         local = event.ts
     kind = event.kind.replace("_", " ")
-    return (f"[{severity.upper()}] {patient.display_name}: {kind} at {local.strftime('%Y-%m-%d %H:%M')} "
-            f"({local.tzname()}). Open the Smart Cane app to respond.")
+    if event.time_quality == "unsynced":  # the cane's clock was not set: do not present its ts as fact
+        when = "(time not set on the cane, just received)"
+    else:
+        when = f"at {local.strftime('%Y-%m-%d %H:%M')} ({local.tzname()})"
+    return f"[{severity.upper()}] {patient.display_name}: {kind} {when}. Open the Smart Cane app to respond."
 
 
 def _event_with_cause(db: Session, ev: DeviceEvent):
@@ -56,7 +60,12 @@ def _event_with_cause(db: Session, ev: DeviceEvent):
 
 
 def _send_and_record(db: Session, ev: DeviceEvent, attempt: int, now: datetime) -> None:
-    patient = db.get(Patient, _patient_id(db, ev))
+    pid = _patient_id(db, ev)
+    patient = db.get(Patient, pid) if pid is not None else None
+    if patient is None:
+        # Never drop a safety alert because we cannot name the patient: say what we do know.
+        log.error("escalation for event %s: no patient found for device %s", ev.event_id, ev.device_id)
+        patient = SimpleNamespace(display_name="a patient (unassigned cane)", timezone="UTC")
     ev = _event_with_cause(db, ev)
     sev, _ = severity_for(ev)
     text = build_message(ev, patient, sev)

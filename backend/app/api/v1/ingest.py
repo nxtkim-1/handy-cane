@@ -24,6 +24,7 @@ from backend.app.schemas import EventRecordIn, IngestBatchIn, MinuteRecordIn
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
+EARLIEST_TS = datetime(1970, 1, 1, tzinfo=timezone.utc)  # a Pi with no clock boots at the epoch (MASTER 7.5)
 MAX_SNIPPET_BYTES = 64 * 1024
 CHUNK = 400
 
@@ -44,9 +45,18 @@ def _validate(rec: dict, now: datetime):
         return None, _reason(e)
     if r.ts.tzinfo is None:
         return None, "ts: must include a UTC offset"
-    r.ts = r.ts.astimezone(timezone.utc)
+    try:
+        r.ts = r.ts.astimezone(timezone.utc)
+    except (OverflowError, ValueError):  # e.g. year 0001 with a +14:00 offset: reject THIS record, not the batch
+        return None, "ts: out of range"
+    if r.ts < EARLIEST_TS:
+        return None, "ts: before 1970"
     if r.ts > now + timedelta(days=1):
         return None, "ts: too far in the future"
+    if r.type == "minute":
+        # A minute record is the bucket that STARTS at a whole minute; a clock correction can leave it a few
+        # seconds off, which would otherwise count the same minute twice (once per slightly different ts).
+        r.ts = r.ts.replace(second=0, microsecond=0)
     return r, None
 
 

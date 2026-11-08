@@ -310,3 +310,29 @@ def test_baseline_endpoint_needs_enough_valid_days(env):
     r = env.client.post(f"/v1/patients/{env.pid}/baseline", headers=env.doca,
                         json={"start_day": "2026-03-02", "end_day": "2026-03-15"})
     assert r.status_code == 422 and r.json()["error"]["code"] == "insufficient_data"
+
+
+def test_fall_from_a_cane_with_no_clock_is_still_visible(env):
+    """The Pi has no RTC: an event stamped 1970 (time_quality unsynced) must not vanish from the patient's alerts."""
+    odd = event(900, datetime(1970, 1, 1, 0, 10, tzinfo=timezone.utc), time_quality="unsynced", outcome="escalated")
+    assert post(e := env, [odd]).json()["inserted"] == 1
+    evs = e.client.get(f"/v1/patients/{e.pid}/events", headers=e.pat).json()
+    assert [x for x in evs if x["event_id"] == odd["event_id"]], "unsynced-clock event is invisible"
+    assert e.client.get(f"/v1/patients/{e.pid}/overview", headers=e.pat).json()["open_events"] >= 1
+
+
+def test_one_bad_record_does_not_fail_the_whole_batch(env):
+    good = minute(901, T0)
+    bad_seq = minute(2**70, T0 + timedelta(minutes=1))
+    bad_ts = minute(902, T0)
+    bad_ts["ts"] = "0001-01-01T00:00:00+14:00"
+    r = post(env, [good, bad_seq, bad_ts])
+    assert r.status_code == 200
+    body = r.json()
+    assert body["inserted"] == 1 and len(body["rejected"]) == 2
+
+
+def test_same_minute_at_two_offsets_is_counted_once(env):
+    a, b = minute(903, T0 + timedelta(hours=3)), minute(904, T0 + timedelta(hours=3, seconds=30))
+    body = post(env, [a, b]).json()
+    assert body["inserted"] == 1 and body["duplicates"] == 1

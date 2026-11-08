@@ -12,12 +12,18 @@ from backend.app.severity import RANK, severity_for
 
 
 def patient_events_query(patient_id):
-    """Events of devices while assigned to the patient."""
+    """Events of devices while assigned to the patient.
+
+    Events with an uncorrected clock (time_quality 'unsynced', the Pi has no RTC) carry a meaningless ts, so they
+    belong to the patient who CURRENTLY has the device (open assignment); otherwise a real fall would be invisible.
+    """
+    in_window = and_(DeviceEvent.ts >= DeviceAssignment.valid_from,
+                     or_(DeviceAssignment.valid_to.is_(None), DeviceEvent.ts < DeviceAssignment.valid_to))
+    clock_unknown = and_(DeviceEvent.time_quality == "unsynced", DeviceAssignment.valid_to.is_(None))
     return select(DeviceEvent).join(
         DeviceAssignment,
         and_(DeviceAssignment.device_id == DeviceEvent.device_id, DeviceAssignment.patient_id == patient_id,
-             DeviceEvent.ts >= DeviceAssignment.valid_from,
-             or_(DeviceAssignment.valid_to.is_(None), DeviceEvent.ts < DeviceAssignment.valid_to)))
+             or_(in_window, clock_unknown)))
 
 
 def event_to_out(e: DeviceEvent, cause: str | None = None) -> EventOut:

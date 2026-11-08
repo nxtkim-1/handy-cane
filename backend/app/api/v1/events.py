@@ -20,6 +20,12 @@ def patient_for_event(db: Session, ev: DeviceEvent):
     a = db.scalars(select(DeviceAssignment).where(
         DeviceAssignment.device_id == ev.device_id, DeviceAssignment.valid_from <= ev.ts,
         or_(DeviceAssignment.valid_to.is_(None), DeviceAssignment.valid_to > ev.ts))).first()
+    if a is None and ev.time_quality == "unsynced":
+        # The cane's clock was not set when this was recorded (no RTC), so ts cannot be matched against the
+        # assignment window. A safety event must never become invisible: use the device's current patient.
+        a = db.scalars(select(DeviceAssignment).where(
+            DeviceAssignment.device_id == ev.device_id, DeviceAssignment.valid_to.is_(None))
+            .order_by(DeviceAssignment.valid_from.desc())).first()
     return a.patient_id if a else None
 
 

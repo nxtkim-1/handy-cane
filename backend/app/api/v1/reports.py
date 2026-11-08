@@ -114,7 +114,9 @@ def generate_for_period(db: Session, patient: Patient, period_end: date, client,
     start = period_end - timedelta(days=13)
     existing = db.scalars(select(Report).where(Report.patient_id == patient.patient_id,
                                                Report.period_start == start)).first()
-    if existing is not None and existing.status != "pending":
+    # Only a successfully generated report is frozen. A pending / fallback / insufficient_data / failed one is
+    # retried: more data may have arrived, or Gemini may be reachable now.
+    if existing is not None and existing.status == "generated":
         return existing
     inp = _build_input(db, patient, period_end)
     res = generate_report(inp, client)
