@@ -22,3 +22,13 @@ if the database is plain PostgreSQL.
 ## Gemini reports
 If `GEMINI_API_KEY` is set the report endpoint uses Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash`);
 otherwise it uses the deterministic template. Never commit `.env`.
+
+## Demo day: one command
+```
+.\scripts\start-demo.ps1 -Simulated                    # laptop + simulated cane, then Expo (scan the QR code)
+.\scripts\start-demo.ps1 -CaneUrl http://<pi-ip>:8765  # with the real cane (start its link server with --lan)
+.\scripts\start-demo.ps1 -Simulated -Local             # no internet: local database instead of Tiger Cloud
+.\scripts\stop-demo.ps1                                # stop everything
+```
+The script fills the backend and cane addresses into the app, so it opens in live mode with nothing to type.
+Join the phone hotspot first, and allow the ports once in Windows Firewall (the script prints the command).
