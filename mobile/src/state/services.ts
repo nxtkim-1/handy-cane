@@ -12,7 +12,7 @@ import { MockCaneTransport } from '../comm/MockCaneTransport';
 import type { LocalStore } from '../db/LocalStore';
 import { MemoryStore } from '../db/MemoryStore';
 import { META_LAST_SYNC, runPullSync } from '../sync/pullSync';
-import { runUploadWorker } from '../sync/uploadWorker';
+import { describeRejects, runUploadWorker } from '../sync/uploadWorker';
 import { queryClient } from './queryClient';
 
 const ENV_API = process.env.EXPO_PUBLIC_API_URL;
@@ -42,9 +42,20 @@ export const useApp = create<AppState>((set) => ({
   user: null,
   activePatientId: null,
   setConfig: (c) => {
-    api = null;
-    transport = null;
+    const prev = useApp.getState();
+    const apiChanged = (c.mock !== undefined && c.mock !== prev.mock) || (c.apiUrl !== undefined && c.apiUrl !== prev.apiUrl);
+    const transportChanged = (c.mock !== undefined && c.mock !== prev.mock) || (c.caneUrl !== undefined && c.caneUrl !== prev.caneUrl);
+    if (transportChanged) transport = null;
     stopCueFeed();
+    if (apiChanged) {
+      // Different backend: never carry credentials over; require a fresh sign-in.
+      api?.setTokens(null);
+      api = null;
+      void saveRefreshToken(null);
+      queryClient.clear();
+      set({ ...c, user: null, activePatientId: null });
+      return;
+    }
     set(c);
   },
   setUser: (u) => set({ user: u, activePatientId: u?.patient_ids[0] ?? null }),
@@ -152,6 +163,8 @@ export interface SyncStatus {
   message: string | null;
   error: string | null;
   waitingToUpload: number;
+  /** Actionable text when the server permanently rejected records (persisted dead letters). */
+  rejectedMessage: string | null;
 }
 
 export const useSync = create<SyncStatus & { run(): Promise<void>; refreshStatus(): Promise<void> }>((set) => ({
@@ -160,11 +173,12 @@ export const useSync = create<SyncStatus & { run(): Promise<void>; refreshStatus
   message: null,
   error: null,
   waitingToUpload: 0,
+  rejectedMessage: null,
   async refreshStatus() {
     const store = await getStore();
     const last = await store.getMeta(META_LAST_SYNC);
     const q = await store.queueStats();
-    set({ lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records });
+    set({ lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records, rejectedMessage: describeRejects(await store.listDeadLetters()) });
   },
   async run() {
     set({ syncing: true, error: null, message: null });
@@ -180,7 +194,10 @@ export const useSync = create<SyncStatus & { run(): Promise<void>; refreshStatus
     } catch { /* queue retained */ }
     const last = await store.getMeta(META_LAST_SYNC);
     const q = await store.queueStats();
-    set({ syncing: false, lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records });
+    set({
+      syncing: false, lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records,
+      rejectedMessage: describeRejects(await store.listDeadLetters()),
+    });
     // New alerts/records may have arrived: refresh every screen that shows them.
     queryClient.invalidateQueries();
   },
