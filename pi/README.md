@@ -105,8 +105,13 @@ the cane logs a `cane_down`, `alert` or `flow_cancelled` event.
 
 The feed is read-only: nothing through it can write the database or trigger the
 cane. It serves only the page, the event list (sequence, time, type - no details),
-the live status and the clips; never the source files or the database. Never
-port-forward it, and only use LAN mode on networks you trust.
+the live status and the clips; never the source files or the database.
+
+LAN mode is for a trusted private network only - a phone hotspot or your home
+Wi-Fi, not the shared hackathon venue Wi-Fi. The pairing code and the feed travel
+over plain HTTP: anyone on the same network could capture them, and a captured
+code only works until the server restarts. Never port-forward the server or
+expose it beyond the local network.
 
 This checks the voice and wording of the clips and the event flow - not the
 cane's final speaker output.
