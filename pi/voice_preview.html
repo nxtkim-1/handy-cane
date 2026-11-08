@@ -136,7 +136,7 @@ async function poll() {
   }
   const evs = data.events || [];
   if (lastSeq === null) {                       // first poll: baseline only, no replay
-    if (evs.length) lastSeq = evs[evs.length - 1].seq;
+    lastSeq = evs.length ? evs[evs.length - 1].seq : 0;   // empty feed: start at 0 so the next event still plays
     return;
   }
   for (const ev of evs) {
