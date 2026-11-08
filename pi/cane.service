@@ -1,0 +1,13 @@
+[Unit]
+Description=Smart cane reader
+After=network-online.target pipewire.service
+
+[Service]
+WorkingDirectory=__DIR__
+EnvironmentFile=__DIR__/.env
+ExecStart=__DIR__/.venv/bin/python -u cane_reader.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
