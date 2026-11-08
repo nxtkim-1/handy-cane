@@ -13,6 +13,17 @@ export interface QueueItem {
   last_error: string | null;
 }
 
+/** A record the server permanently rejected (validation failure). Never retried. */
+export interface DeadLetter {
+  device_id: string;
+  seq: number;
+  batch_id: string;
+  reason: string;
+  /** The rejected record as JSON (null if the server named a seq not in the batch). */
+  record_json: string | null;
+  created_ms: number;
+}
+
 export interface ApplyPageResult {
   inserted: number;
   duplicates: number;
@@ -43,7 +54,14 @@ export interface LocalStore {
 
   // upload_queue
   dueBatches(nowMs: number, limit: number): Promise<QueueItem[]>;
+  /** `dead` = permanently parked batches + dead-lettered (server-rejected) records. */
   queueStats(): Promise<{ batches: number; records: number; dead: number }>;
+  /**
+   * Retain server-rejected records of a batch as DEAD with their reasons (no retry).
+   * Idempotent per (device_id, seq). Does not remove the batch: call completeBatch afterwards.
+   */
+  deadLetterRecords(batchId: string, rejects: { seq: number; reason: string; index?: number }[]): Promise<void>;
+  listDeadLetters(): Promise<DeadLetter[]>;
   completeBatch(batchId: string): Promise<void>;
   failBatch(batchId: string, nextAttemptMs: number, error: string, dead: boolean): Promise<void>;
 
