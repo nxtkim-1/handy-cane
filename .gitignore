@@ -21,3 +21,7 @@ node_modules/
 
 # Logs
 *.log
+
+.claude/worktrees/
+# Local dev DBs
+*.db
