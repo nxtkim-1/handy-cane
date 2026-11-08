@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo/metro-runtime": "~58.0.17",
     "@tanstack/react-query": "^5.107.1",
     "expo": "~58.0.23",
     "expo-audio": "~58.0.11",
@@ -14,10 +15,12 @@
     "expo-sqlite": "~58.0.15",
     "expo-status-bar": "~58.0.4",
     "react": "19.3.0",
+    "react-dom": "19.3.0",
     "react-native": "0.88.1",
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.1",
     "react-native-svg": "15.16.0",
+    "react-native-web": "^0.21.4",
     "zustand": "^5.1.0"
   },
   "devDependencies": {
@@ -25,6 +28,7 @@
     "@types/react": "~19.3.0",
     "babel-preset-expo": "^58.0.24",
     "jest": "~30.5.2",
+    "playwright-core": "^1.65.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -33,7 +37,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e:build": "node -e \"process.env.EXPO_PUBLIC_API_URL=process.env.EXPO_PUBLIC_API_URL||'http://localhost:8000';process.env.EXPO_PUBLIC_CANE_URL=process.env.EXPO_PUBLIC_CANE_URL||'http://localhost:8765';require('child_process').execSync('npx expo export --platform web --output-dir dist-web',{stdio:'inherit'})\"",
+    "e2e:serve": "node e2e/serve.mjs dist-web 8082",
+    "e2e:smoke": "node e2e/smoke.mjs"
   },
   "private": true,
   "jest": {

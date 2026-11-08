@@ -1,3 +1,5 @@
+import type { Severity } from './severity';
+
 export type Role = 'patient' | 'caregiver' | 'clinician';
 
 export interface User {
@@ -6,6 +8,16 @@ export interface User {
   display_name: string;
   role: Role;
   patient_ids: string[];
+  /** One entry per patient this user can see (from /me). */
+  patients: PatientAccess[];
+}
+
+export interface PatientAccess {
+  patient_id: string;
+  /** null until the patient has given consent. */
+  consent_at: string | null;
+  relation: string; // self | caregiver | clinician
+  can_dismiss_events: boolean;
 }
 
 export interface Tokens {
@@ -22,6 +34,7 @@ export interface Patient {
 
 export interface PatientListItem extends Patient {
   open_events: number;
+  open_high_events: number;
   sustained_change: boolean;
   last_sync_at: string | null;
   stale_sync: boolean;
@@ -50,6 +63,8 @@ export interface Overview {
   today: { day: string; valid_so_far: boolean; coverage_h: number; active_min: number | null; strikes: number | null };
   last_7_valid_days: { active_min_median: number | null; valid_days: number };
   open_events: number;
+  /** Open alerts only. */
+  open_events_by_severity: Record<Severity, number>;
   latest_report: { report_id: string; period_end: string; status: string } | null;
   change_flags: { metric: string; direction: 'up' | 'down'; since: string }[];
 }
@@ -65,6 +80,20 @@ export interface EventItem {
   time_quality: 'synced' | 'unsynced' | 'corrected';
   dismiss_reason: string | null;
   note: string | null;
+  severity: Severity;
+  /** Short plain-language sentence saying why it has this severity. */
+  severity_reason: string;
+  cause: string | null;
+  /** Peak impact in g, when known. */
+  peak_g?: number | null;
+}
+
+export interface Escalation {
+  event_id: string;
+  sent_at: string;
+  channel: string;
+  ok: boolean;
+  attempt: number;
 }
 
 export const DISMISS_REASONS: { code: string; label: string }[] = [

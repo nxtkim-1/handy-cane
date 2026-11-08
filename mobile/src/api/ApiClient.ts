@@ -1,15 +1,27 @@
 import type { IngestBatch, IngestResponse } from '../types';
 import { IngestError } from '../sync/uploadWorker';
 import {
-  adaptBaseline, adaptDaily, adaptEvent, adaptOverview, adaptPatientListItem, adaptReport, adaptUser,
+  adaptBaseline, adaptDaily, adaptEscalations, adaptEvent, adaptOverview, adaptPatientListItem, adaptReport,
+  adaptUser, listHasSummary,
 } from './adapt';
 import type {
-  Baseline, DailyMetric, EventItem, Overview, Patient, PatientListItem, Report, Tokens, User,
+  Baseline, DailyMetric, Escalation, EventItem, Overview, Patient, PatientListItem, Report, Tokens, User,
 } from './types';
 
 export interface ApiClient {
   login(email: string, password: string): Promise<{ user: User; tokens: Tokens }>;
+  /** Signs in again from a stored refresh token (app launch). Rejects with ApiError 401/403 when it is no longer valid. */
+  restore(refreshToken: string): Promise<{ user: User; tokens: Tokens }>;
   me(): Promise<User>;
+  /** Called when the client gets new tokens by itself (refresh), so they can be stored. */
+  onTokens?: (t: Tokens | null) => void;
+  /** Records the patient's consent (patient, or caregiver acting for them). */
+  giveConsent(pid: string): Promise<void>;
+  /** Self only. */
+  withdrawConsent(pid: string): Promise<void>;
+  /** Self only. Permanently deletes the patient's data (audit records are kept). */
+  deleteData(pid: string): Promise<void>;
+  escalations(pid: string): Promise<Escalation[]>;
   patients(): Promise<PatientListItem[]>;
   overview(pid: string): Promise<Overview>;
   daily(pid: string, from: string, to: string): Promise<DailyMetric[]>;
@@ -59,7 +71,7 @@ export class HttpApiClient implements ApiClient {
       const r = await this.raw('POST', '/v1/auth/refresh', { refresh_token: this.tokens.refresh_token }, false);
       if (r.ok) {
         const j = await r.json();
-        this.tokens = { ...this.tokens, access_token: j.access_token };
+        this.tokens = { access_token: j.access_token, refresh_token: j.refresh_token ?? this.tokens.refresh_token };
         this.onTokens?.(this.tokens);
         res = await this.raw(method, path, body, auth);
       }
@@ -73,7 +85,11 @@ export class HttpApiClient implements ApiClient {
       } catch { /* ignore */ }
       throw new ApiError(res.status, code, message);
     }
-    return (await res.json()) as T;
+    try {
+      return (await res.json()) as T;
+    } catch {
+      return undefined as T; // 204 / empty body (withdraw, delete)
+    }
   }
 
   async login(email: string, password: string) {
@@ -82,11 +98,28 @@ export class HttpApiClient implements ApiClient {
     const user = await this.me();
     return { user, tokens: t };
   }
-  // The backend's JSON differs from the app's types; adapt.ts maps it (tested on recorded responses).
+  // The backend's JSON differs from the app's types in several places; adapt.ts maps it (and is tested
+  // against captured live responses).
+  async restore(refreshToken: string) {
+    const r = await this.raw('POST', '/v1/auth/refresh', { refresh_token: refreshToken }, false);
+    if (!r.ok) throw new ApiError(r.status, 'refresh_failed', 'Your session has ended. Please sign in again.');
+    const j = await r.json();
+    const t: Tokens = { access_token: j.access_token, refresh_token: j.refresh_token ?? refreshToken };
+    this.tokens = t;
+    return { user: await this.me(), tokens: t };
+  }
   async me(): Promise<User> { return adaptUser(await this.call<any>('GET', '/v1/me')); }
+  async giveConsent(pid: string) { await this.call('POST', `/v1/patients/${pid}/consent`, {}); }
+  async withdrawConsent(pid: string) { await this.call('POST', `/v1/patients/${pid}/consent/withdraw`); }
+  async deleteData(pid: string) { await this.call('DELETE', `/v1/patients/${pid}/data`, { confirm: true }); }
+  async escalations(pid: string): Promise<Escalation[]> {
+    return adaptEscalations(await this.call<any>('GET', `/v1/patients/${pid}/escalations`));
+  }
   async patients(): Promise<PatientListItem[]> {
     const rows = await this.call<any[]>('GET', '/v1/patients');
+    // Newer backends put the alert/sync summary on the list itself; older ones need each patient's overview.
     return Promise.all(rows.map(async (p) => {
+      if (listHasSummary(p)) return adaptPatientListItem(p);
       try {
         return adaptPatientListItem(p, await this.call<any>('GET', `/v1/patients/${p.patient_id}/overview`));
       } catch {

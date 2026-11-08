@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Switch, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Body, Button, Card, ErrorText, Field, H1, Screen } from '../src/ui/kit';
-import { getApi, saveRefreshToken, useApp } from '../src/state/services';
+import { completeSignIn, getApi, useApp } from '../src/state/services';
 
 export default function SignIn() {
   const router = useRouter();
-  const { mock, apiUrl, caneUrl, setConfig, setUser } = useApp();
+  const { mock, apiUrl, caneUrl, setConfig } = useApp();
   const [email, setEmail] = useState(mock ? 'patient@demo' : '');
   const [password, setPassword] = useState(mock ? 'demo' : '');
   const [busy, setBusy] = useState(false);
@@ -17,8 +17,7 @@ export default function SignIn() {
     setError(null);
     try {
       const { user, tokens } = await getApi().login(email, password);
-      await saveRefreshToken(tokens.refresh_token);
-      setUser(user);
+      await completeSignIn(user, tokens.refresh_token);
       router.replace('/');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not sign in.');
@@ -37,8 +36,8 @@ export default function SignIn() {
       <Button label="Sign in" onPress={submit} loading={busy} />
 
       <Card>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 }}>
-          <Body>Demo mode (no backend, simulated cane)</Body>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, gap: 8 }}>
+          <Body style={{ flexShrink: 1 }}>Demo mode (no backend, simulated cane)</Body>
           <Switch
             accessibilityLabel="Demo mode"
             value={mock}
@@ -46,7 +45,7 @@ export default function SignIn() {
           />
         </View>
         {mock ? (
-          <Body sub>Demo accounts: patient@demo or clinician@demo, password demo. All data is simulated.</Body>
+          <Body sub>Demo accounts: patient@demo, caregiver@demo or clinician@demo, password demo. All data is simulated.</Body>
         ) : (
           <>
             <Field label="Backend address" value={apiUrl} onChangeText={(t) => setConfig({ apiUrl: t })} autoCapitalize="none" />

@@ -29,3 +29,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Expo web test build and screenshots
+mobile/dist-web/
+mobile/e2e/shots/

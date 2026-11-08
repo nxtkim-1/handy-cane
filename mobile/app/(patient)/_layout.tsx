@@ -1,11 +1,13 @@
 import React from 'react';
 import { Redirect, Tabs } from 'expo-router';
 import { useApp } from '../../src/state/services';
+import { pendingConsent } from '../../src/state/consent';
 import { AppBar, colors } from '../../src/ui/kit';
 
 export default function PatientLayout() {
   const user = useApp((s) => s.user);
-  if (!user) return <Redirect href="/sign-in" />;
+  // Not signed in yet, still restoring, or consent still needed: the index screen decides where to go.
+  if (!user || pendingConsent(user)) return <Redirect href="/" />;
   return (
     <Tabs
       screenOptions={{

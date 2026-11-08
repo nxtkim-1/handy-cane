@@ -66,6 +66,13 @@ def check(name, cond, detail=""):
 
 import tempfile, shutil
 TMP = tempfile.mkdtemp(prefix="cane_suite_")
+# Original (live) outbox path, captured before any fresh_cane override, plus its state now.
+REAL_OUTBOX = os.path.abspath(C.LINK_DB_PATH)
+def _snap(path):
+    if not os.path.exists(path): return None
+    st = os.stat(path)
+    return (st.st_size, st.st_mtime_ns, open(path, "rb").read())
+REAL_OUTBOX_BEFORE = _snap(REAL_OUTBOX)
 _ACTIVE = []   # (thread, hw, cane, con) of the running scenario
 _N = [0]
 
@@ -93,6 +100,8 @@ def fresh_cane(segments, run_s):
     C.DB_PATH = db.DB_PATH = os.path.join(TMP, f"cane_{_N[0]}.db")
     csv_path = os.path.join(TMP, f"scenario_{_N[0]}.csv")
     C.SOURCE = "fake:" + csv_path
+    # cane_reader's Store reads C.LINK_DB_PATH at Cane init: keep the live outbox out of the harness
+    C.LINK_DB_PATH = os.path.join(TMP, f"outbox_{_N[0]}.db")
     SENT.clear()
     write_csv(csv_path, segments)
     hw = hardware.open_cane()
@@ -160,6 +169,25 @@ check("close() stops worker threads promptly",
       bool(workers) and not any(t.is_alive() for t in workers) and time.time() - t0 < 2.0,
       [t.name for t in workers if t.is_alive()])
 check("close() is idempotent", hw.close() is None)
+
+# 9. harness cannot contaminate the live outbox: drop + SOS (event-emitting) scenarios must not
+# touch the path a Cane would use by default. A sentinel stands in for the live outbox (hermetic).
+SENTINEL = os.path.join(TMP, "sentinel_live_outbox.db")
+SENTINEL_BYTES = b"SENTINEL-LIVE-OUTBOX\x00do-not-touch\n"
+with open(SENTINEL, "wb") as f: f.write(SENTINEL_BYTES)
+os.utime(SENTINEL, ns=(1_000_000_000_000_000_000,) * 2)
+sent_before = os.stat(SENTINEL).st_mtime_ns
+C.LINK_DB_PATH = SENTINEL          # as if this were the default; fresh_cane must override it
+cane, con = fresh_cane([(150, 0, 0, 1), (1300, 1, 0, 0)], 6)   # drop -> events
+cane.on_button("SOS_HOLD", time.time()); time.sleep(0.3)        # SOS -> more events
+n_ev = con.execute("SELECT count(*) FROM events").fetchone()[0]
+st = os.stat(SENTINEL)
+check("outbox: scenarios emitted events", n_ev > 0, n_ev)
+check("outbox: harness redirected away from default path", C.LINK_DB_PATH != SENTINEL, C.LINK_DB_PATH)
+check("outbox: sentinel bytes/mtime unchanged, nothing appended",
+      open(SENTINEL, "rb").read() == SENTINEL_BYTES and st.st_mtime_ns == sent_before
+      and st.st_size == len(SENTINEL_BYTES), st.st_size)
+check("outbox: real default outbox untouched by whole suite", _snap(REAL_OUTBOX) == REAL_OUTBOX_BEFORE, REAL_OUTBOX)
 
 _stop_active()
 shutil.rmtree(TMP, ignore_errors=True)

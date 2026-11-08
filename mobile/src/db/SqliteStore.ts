@@ -167,6 +167,11 @@ export class SqliteStore implements LocalStore {
       [key, json]);
   }
 
+  async clearCaches(): Promise<void> {
+    await this.db.runAsync('DELETE FROM reports_cache');
+    await this.db.runAsync('DELETE FROM events_cache');
+  }
+
   async getCache(kind: 'reports' | 'events', key: string): Promise<string | null> {
     const t = kind === 'reports' ? 'reports_cache' : 'events_cache';
     const row = await this.db.getFirstAsync<{ json: string }>(`SELECT json FROM ${t} WHERE key=?`, [key]);

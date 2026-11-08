@@ -43,6 +43,11 @@ class PatientOut(ORM):
 class LinkedPatient(PatientOut):
     relation: str
     can_dismiss_events: bool
+    open_events: int = 0
+    open_high_events: int = 0
+    last_sync_at: Optional[datetime] = None
+    sustained_change: bool = False
+    stale_sync: bool = True
 
 
 class MeOut(BaseModel):
@@ -95,9 +100,12 @@ class IngestBatchIn(BaseModel):
     records: list[dict]  # validated one by one so a single bad record does not fail the batch
 
 
+MAX_SEQ = 2**62  # stays inside a signed 64-bit column on every database
+
+
 class MinuteRecordIn(BaseModel):
     type: Literal["minute"]
-    seq: int = Field(ge=0)
+    seq: int = Field(ge=0, le=MAX_SEQ)
     boot_id: uuid.UUID
     ts: datetime
     time_quality: TimeQuality
@@ -117,7 +125,7 @@ class MinuteRecordIn(BaseModel):
 
 class EventRecordIn(BaseModel):
     type: Literal["event"]
-    seq: int = Field(ge=0)
+    seq: int = Field(ge=0, le=MAX_SEQ)
     event_id: uuid.UUID
     boot_id: uuid.UUID
     ts: datetime
@@ -129,6 +137,8 @@ class EventRecordIn(BaseModel):
     tilt_deg: Optional[float] = Field(default=None, ge=0, le=180)
     still_s: Optional[float] = Field(default=None, ge=0, le=86400)
     raw_snippet_b64: Optional[str] = None
+    cause: Optional[str] = Field(default=None, max_length=40)
+    source: Optional[str] = Field(default=None, max_length=40)
 
 
 class Rejected(BaseModel):
@@ -164,6 +174,9 @@ class EventOut(ORM):
     status_by: Optional[uuid.UUID] = None
     status_at: Optional[datetime] = None
     is_simulated: bool
+    severity: str = "medium"
+    severity_reason: str = ""
+    cause: Optional[str] = None
 
 
 class EventPatch(BaseModel):
@@ -203,3 +216,7 @@ class ReportOut(ORM):
     prompt_version: str
     is_simulated: bool
     created_at: datetime
+
+
+class DeleteDataIn(BaseModel):
+    confirm: bool = False

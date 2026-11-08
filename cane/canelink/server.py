@@ -14,16 +14,18 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from cane.canesense.live import LiveTracker
 from cane.canesense.store import Store
 
 
-def make_handler(store: Store):
+def make_handler(store: Store, live: LiveTracker | None = None):
     class H(BaseHTTPRequestHandler):
         def _send(self, code: int, body: dict) -> None:
             data = json.dumps(body).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
+            self.send_header("Access-Control-Allow-Origin", "*")   # lets the Expo web build talk to the sim
             self.end_headers()
             self.wfile.write(data)
 
@@ -36,12 +38,25 @@ def make_handler(store: Store):
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             if u.path == "/info":
                 return self._send(200, store.info())
+            if u.path == "/live":
+                snap = live.snapshot() if live is not None else None
+                if snap is None:
+                    return self._send(503, {"error": {"code": "no_live_data",
+                                                      "message": "live sampling not available"}})
+                return self._send(200, snap)
             if u.path == "/pull":
                 try:
                     return self._send(200, store.pull(int(q.get("after_seq", 0)), int(q.get("limit", 500))))
                 except ValueError:
                     return self._send(400, {"error": "bad_params"})
             self._send(404, {"error": "not_found"})
+
+        def do_OPTIONS(self):  # browser pre-flight
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
 
         def do_POST(self):
             try:
@@ -60,7 +75,8 @@ def make_handler(store: Store):
     return H
 
 
-def serve(store: Store, host: str = "0.0.0.0", port: int = 8765) -> ThreadingHTTPServer:
-    srv = ThreadingHTTPServer((host, port), make_handler(store))
+def serve(store: Store, host: str = "0.0.0.0", port: int = 8765,
+          live: LiveTracker | None = None) -> ThreadingHTTPServer:
+    srv = ThreadingHTTPServer((host, port), make_handler(store, live))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv
