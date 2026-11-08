@@ -55,6 +55,7 @@ export default function Cane() {
         {sync.waitingToUpload > 0 && <Body>Waiting to upload: {sync.waitingToUpload} records</Body>}
         {sync.message && <Body>{sync.message}</Body>}
         <ErrorText>{sync.error}</ErrorText>
+        <ErrorText>{sync.rejectedMessage}</ErrorText>
         <Button label="Sync now" loading={sync.syncing} onPress={() => sync.run()} />
         <Body sub>The cane keeps your data until it has been copied to this phone, so nothing is lost if you are away.</Body>
       </Card>
