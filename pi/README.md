@@ -7,37 +7,45 @@ local SQLite database. Works fully offline.
 ## What is where
 
 - `pi/` - the device runtime (runs on the Raspberry Pi, also runs on a laptop for testing)
+- `pi/voice_preview.html` - phone test page for the voice clips (see below)
 - `firmware/cane_firmware/` - Arduino Uno fallback sketch (sensor + button over serial, no Pi)
 - `tests/` - regression suite, simulated inputs only
 
 ## Confirmed hardware for this build
 
 - Raspberry Pi (any recent model with Raspberry Pi OS)
-- Push button - GPIO5 (Grove Base Hat port D5), or plain button GPIO5 to GND with `CANE_BUTTON_PULL_UP=1`
-- ADXL345 accelerometer - I2C bus 1
+- Push button
+- Accelerometer: the code auto-detects an ADXL345 (I2C 0x53 or 0x1D) or an
+  LIS3DH (I2C 0x18 or 0x19) on bus 1. Confirm the label printed on your board
+  before wiring so the wiring guide matches the part you actually have.
 
-Optional, code supports them but they are not required: buzzer (GPIO12),
-LED (GPIO16), Bluetooth speaker, Arduino fallback instead of Pi GPIO.
+Optional, code supports them but they are not required: buzzer, LED, Bluetooth
+speaker, Arduino fallback instead of Pi GPIO. The buzzer/LED pins are driven
+whether or not anything is attached, so missing attachments cause no errors.
 
 ## Test it on a laptop first (no hardware)
 
 The suite replays recorded scenarios through the real detector and reader code.
 It never touches the network or audio: the webhook must be unset and alert/voice
-calls are recorded by a stub.
+calls are recorded by a stub. Verified 10/10 passing on Windows and Linux from a
+fresh clone of this branch.
 
 Windows PowerShell, from a fresh clone:
 
 ```powershell
 cd pi
 python -m venv ..\.venv
-..\.venv\Scripts\pip install -r requirements.txt
+..\.venv\Scripts\pip install numpy requests
 ..\.venv\Scripts\python ..\tests\cane_regression_tests.py
 ```
 
-macOS/Linux: same idea, `.venv/bin/python ../tests/cane_regression_tests.py`.
+macOS/Linux: `python3 -m venv ../.venv`, then `../.venv/bin/pip install numpy requests`,
+then `../.venv/bin/python ../tests/cane_regression_tests.py`.
 
 Expected: ten PASS lines and exit code 0. Imports resolve from the current
-directory, so run it from inside `pi/`, not from the repo root.
+directory, so run it from inside `pi/`, not from the repo root. The suite only
+needs numpy and requests; install the full `requirements.txt` when you run the
+real reader or recorder.
 
 ## Set up the Pi
 
@@ -50,9 +58,12 @@ cd pi
 bash pi_setup.sh        # installs system packages, creates .venv, installs requirements
 ```
 
-4. Wire the ADXL345: VIN to 3V3, GND to GND, SDA to SDA, SCL to SCL.
-   Check the address: `i2cdetect -y 1` - expect `53` (SDO to GND) or `1d` (SDO to 3V3).
-5. Wire the button to GPIO5 and GND.
+4. Wire the accelerometer: VIN to 3V3, GND to GND, SDA to SDA, SCL to SCL
+   (confirm your board's label first; the startup log prints which chip and
+   address it found). `i2cdetect -y 1` shows the address: `53` or `1d` for an
+   ADXL345, `18` or `19` for an LIS3DH.
+5. Wire the button to GPIO5 (Grove Base Hat port D5). For a plain button
+   between GPIO5 and GND, set `CANE_BUTTON_PULL_UP=1`.
 6. First run, with the cane hanging upright and still:
 
 ```bash
@@ -65,18 +76,29 @@ To start at boot: `sudo cp cane.service /etc/systemd/system/ && sudo systemctl e
 ## Voice clips (ElevenLabs or any recording)
 
 If a file `voice/<key>.mp3` (or `.wav`) exists, the cane plays it; otherwise it
-falls back to espeak-ng on the Pi. The six keys:
+falls back to espeak-ng on the Pi. The six keys (text in `config.py` under
+`PHRASES`):
 
 `dropped`, `ask_ok`, `help`, `cancelled`, `sos`, `sit`
 
-To use ElevenLabs voices: generate the six phrases (text is in `config.py`
-under `PHRASES`), download the mp3s, name them `voice/help.mp3` etc. on the Pi.
-No API key or code change needed - the cane only plays the files. Generating
-clips uses the ElevenLabs account's own credits.
+To use ElevenLabs voices: generate the six phrases, download the mp3s, name
+them `voice/help.mp3` etc. on the Pi. No API key or code change needed - the
+cane only plays the files. Generating clips uses the ElevenLabs account's own
+credits.
 
-To preview the clips on an iPhone before the Pi is involved: open the mp3s in
-Safari and tap play. That checks the voice and wording only, not the cane's
-final speaker output.
+### Test the clips on a phone
+
+From the `pi/` folder on the Pi or a laptop:
+
+```bash
+python3 -m http.server 8000
+```
+
+Then on a phone on the same Wi-Fi, open `http://<computer-ip>:8000/voice_preview.html`,
+tap **Enable audio** (the iPhone requires one tap before sound can play; keep
+the page open and in the foreground), then tap each phrase. Clips that are not
+in `voice/` yet show as missing. This checks the voice and wording of the
+clips only, not the cane's final speaker output.
 
 ## Alerts
 
