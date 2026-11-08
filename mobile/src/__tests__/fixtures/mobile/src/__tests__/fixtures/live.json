@@ -1,0 +1,381 @@
+{
+ "me": {
+  "user_id": "bc086369-4e89-4a0a-a5db-d917728b65d7",
+  "email": "patient@demo.example",
+  "display_name": "Demo Patient",
+  "role": "patient",
+  "patients": [
+   {
+    "patient_id": "adab3b9a-b76c-44c3-ac0c-ee7771fcdd23",
+    "display_name": "Demo Patient (simulated)",
+    "timezone": "America/Toronto",
+    "is_simulated": true,
+    "consent_at": "2026-11-08T09:46:24.954114Z",
+    "relation": "self",
+    "can_dismiss_events": true
+   }
+  ]
+ },
+ "patients": [
+  {
+   "patient_id": "adab3b9a-b76c-44c3-ac0c-ee7771fcdd23",
+   "display_name": "Demo Patient (simulated)",
+   "timezone": "America/Toronto",
+   "is_simulated": true,
+   "consent_at": "2026-11-08T09:46:24.954114Z",
+   "relation": "self",
+   "can_dismiss_events": true
+  }
+ ],
+ "overview": {
+  "patient": {
+   "patient_id": "adab3b9a-b76c-44c3-ac0c-ee7771fcdd23",
+   "display_name": "Demo Patient (simulated)",
+   "is_simulated": true,
+   "timezone": "America/Toronto"
+  },
+  "device": {
+   "device_id": "cane-sim01",
+   "last_seen_at": "2026-11-08T09:47:38.245296+00:00",
+   "sensor_model": "ADXL345",
+   "is_simulated": true,
+   "unsynced_hint": false
+  },
+  "today": {
+   "day": "2026-11-08",
+   "valid_so_far": false,
+   "coverage_h": 0.0,
+   "active_min": null,
+   "strikes": null
+  },
+  "last_7_valid_days": {
+   "active_min_median": 58.2,
+   "vs_baseline_z": -1.54,
+   "n_valid_days": 7
+  },
+  "open_events": 3,
+  "latest_report": {
+   "report_id": "74c95660-541a-49a8-bb30-c2aa32aabb85",
+   "period_end": "2026-11-07",
+   "status": "generated"
+  },
+  "change_flags": [
+   {
+    "metric": "bout_median_s",
+    "direction": "down",
+    "since": "2026-09-26"
+   },
+   {
+    "metric": "active_min",
+    "direction": "down",
+    "since": "2026-10-10"
+   },
+   {
+    "metric": "strikes",
+    "direction": "down",
+    "since": "2026-10-17"
+   }
+  ]
+ },
+ "daily": [
+  {
+   "day": "2026-09-13",
+   "valid": true,
+   "no_data": false,
+   "coverage_h": 12.0,
+   "active_min": 67.833,
+   "strikes": 2924,
+   "bouts": 27,
+   "bout_median_s": 180.0,
+   "bout_longest_s": 420.0,
+   "rhythm_cv_median": 0.12640929596553777,
+   "active_by_hour": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    9,
+    19,
+    16,
+    10,
+    13,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "events_potential_fall": 0,
+   "events_cancelled": 0,
+   "help_presses": 0,
+   "is_simulated": true
+  },
+  {
+   "day": "2026-09-14",
+   "valid": true,
+   "no_data": false,
+   "coverage_h": 12.0,
+   "active_min": 69.8,
+   "strikes": 3111,
+   "bouts": 33,
+   "bout_median_s": 180.0,
+   "bout_longest_s": 360.0,
+   "rhythm_cv_median": 0.1286501635782022,
+   "active_by_hour": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    9,
+    12,
+    15,
+    15,
+    12,
+    7,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "events_potential_fall": 0,
+   "events_cancelled": 0,
+   "help_presses": 0,
+   "is_simulated": true
+  },
+  {
+   "day": "2026-09-15",
+   "valid": true,
+   "no_data": false,
+   "coverage_h": 12.0,
+   "active_min": 65.683,
+   "strikes": 2946,
+   "bouts": 22,
+   "bout_median_s": 240.0,
+   "bout_longest_s": 420.0,
+   "rhythm_cv_median": 0.12610295386890744,
+   "active_by_hour": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    7,
+    20,
+    18,
+    16,
+    4,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "events_potential_fall": 0,
+   "events_cancelled": 0,
+   "help_presses": 0,
+   "is_simulated": true
+  },
+  {
+   "day": "2026-09-23",
+   "valid": false,
+   "no_data": false,
+   "coverage_h": 4.0,
+   "active_min": null,
+   "strikes": null,
+   "bouts": null,
+   "bout_median_s": null,
+   "bout_longest_s": null,
+   "rhythm_cv_median": null,
+   "active_by_hour": null,
+   "events_potential_fall": 0,
+   "events_cancelled": 0,
+   "help_presses": 0,
+   "is_simulated": true
+  }
+ ],
+ "baseline": {
+  "baseline_id": "cb98aca5-2885-4fde-b500-51f2b89f534a",
+  "start_day": "2026-09-13",
+  "end_day": "2026-09-27",
+  "n_valid_days": 14,
+  "stats": {
+   "active_min": {
+    "median": 65.708,
+    "mad": 2.5589999999999975,
+    "n_days": 14
+   },
+   "strikes": {
+    "median": 2863.0,
+    "mad": 179.0,
+    "n_days": 14
+   },
+   "bout_median_s": {
+    "median": 180.0,
+    "mad": 15.0,
+    "n_days": 14
+   }
+  },
+  "is_active": true,
+  "set_by": null,
+  "created_at": "2026-11-08T09:47:46.050111Z"
+ },
+ "events": [
+  {
+   "event_id": "cc2c33c1-616e-4695-bb0e-93103ed3f110",
+   "device_id": "cane-sim01",
+   "ts": "2026-11-05T19:00:00Z",
+   "time_quality": "synced",
+   "time_uncertain": false,
+   "kind": "potential_fall",
+   "outcome": "cancelled_by_user",
+   "confidence": 0.6,
+   "peak_g": 4.1,
+   "tilt_deg": 80.0,
+   "still_s": 11.0,
+   "status": "open",
+   "status_reason": null,
+   "status_by": null,
+   "status_at": null,
+   "is_simulated": true
+  },
+  {
+   "event_id": "be333381-5268-44cc-b575-8c24ddf7c9c8",
+   "device_id": "cane-sim01",
+   "ts": "2026-10-29T18:00:00Z",
+   "time_quality": "synced",
+   "time_uncertain": false,
+   "kind": "help_request",
+   "outcome": "acknowledged_on_cane",
+   "confidence": 0.6,
+   "peak_g": 1.2,
+   "tilt_deg": 80.0,
+   "still_s": 11.0,
+   "status": "open",
+   "status_reason": null,
+   "status_by": null,
+   "status_at": null,
+   "is_simulated": true
+  },
+  {
+   "event_id": "1060a37c-4e1b-445f-9174-b048ffc927ec",
+   "device_id": "cane-sim01",
+   "ts": "2026-10-19T18:00:00Z",
+   "time_quality": "synced",
+   "time_uncertain": false,
+   "kind": "impact_only",
+   "outcome": "cancelled_by_user",
+   "confidence": 0.6,
+   "peak_g": 3.2,
+   "tilt_deg": 80.0,
+   "still_s": 11.0,
+   "status": "open",
+   "status_reason": null,
+   "status_by": null,
+   "status_at": null,
+   "is_simulated": true
+  }
+ ],
+ "reports": [
+  {
+   "report_id": "74c95660-541a-49a8-bb30-c2aa32aabb85",
+   "patient_id": "adab3b9a-b76c-44c3-ac0c-ee7771fcdd23",
+   "period_start": "2026-10-25",
+   "period_end": "2026-11-07",
+   "status": "generated",
+   "output_json": {
+    "overall_summary": "During this period, daily cane-active minutes dropped from 61.8 to 57.1 minutes per day compared to the previous period. Daily cane steps also decreased from 2712.0 to 2472.5 steps per day, and typical walking-bout length decreased from 180.0 to 120.0 seconds. Additionally, the device logged 1 help request and 1 cancelled potential fall or cane drop. You may wish to discuss these changes with your care team.",
+    "activity_overview": "The cane was used for a median of 57.1 active minutes per day across 14 valid days in this period.",
+    "mobility_trends": [
+     {
+      "metric_key": "active_min",
+      "statement": "Cane-active minutes per day moved down to 57.1 min/day.",
+      "direction": "down"
+     },
+     {
+      "metric_key": "bout_median_s",
+      "statement": "Typical walking-bout length moved down to 120.0 seconds.",
+      "direction": "down"
+     },
+     {
+      "metric_key": "strikes",
+      "statement": "Cane steps per day moved down to 2472.5 count/day.",
+      "direction": "down"
+     },
+     {
+      "metric_key": "rhythm_cv_median",
+      "statement": "Cane rhythm variability remained stable at 0.1 ratio.",
+      "direction": "stable"
+     }
+    ],
+    "changes_vs_previous": [
+     {
+      "metric_key": "active_min",
+      "statement": "Cane-active minutes per day changed by -7.6% compared to the previous period.",
+      "direction": "down"
+     },
+     {
+      "metric_key": "bout_median_s",
+      "statement": "Typical walking-bout length changed by -33.3% compared to the previous period.",
+      "direction": "down"
+     },
+     {
+      "metric_key": "strikes",
+      "statement": "Cane steps per day changed by -8.8% compared to the previous period.",
+      "direction": "down"
+     }
+    ],
+    "safety_concerns": [
+     {
+      "statement": "There was 1 help request during this period.",
+      "source": "events"
+     },
+     {
+      "statement": "There was 1 cancelled potential fall or cane drop event during this period.",
+      "source": "events"
+     }
+    ],
+    "areas_to_monitor": [
+     "Decrease in daily cane steps from 2712.0 to 2472.5 count/day.",
+     "Decrease in typical walking-bout length from 180.0 to 120.0 seconds.",
+     "Logged safety events including 1 help request."
+    ],
+    "data_reliability": "Data reliability is high, based on 14 valid days out of 14 total days with a median coverage of 12.0 hours per day.",
+    "patient_friendly_summary": "You used your cane for a daily average of 57.1 minutes during this period. Your daily cane steps and walking bout lengths were lower than in the previous period. There was also 1 help request and 1 cancelled potential fall or cane drop recorded.",
+    "disclaimer_ack": "This report describes cane-use patterns and is not a medical diagnosis."
+   },
+   "prompt_version": "report-v1",
+   "is_simulated": true,
+   "created_at": "2026-11-08T10:05:05.824565Z"
+  }
+ ],
+ "report_id": "74c95660-541a-49a8-bb30-c2aa32aabb85"
+}
