@@ -1,0 +1,35 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# C/C++ / embedded builds
+build/
+*.o
+*.elf
+*.hex
+*.bin
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+
+# Logs
+*.log
+
+.claude/worktrees/
+# Local dev DBs
+*.db
+
+.env
+.env.*
+!.env.example
+
+# Expo web test build and screenshots
+mobile/dist-web/
+mobile/e2e/shots/
