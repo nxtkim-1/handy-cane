@@ -112,4 +112,95 @@ describe('CueFeed', () => {
     expect(polls).toHaveLength(2);
     for (const p of polls) expect((p.init?.headers as Record<string, string>).Cookie).toBe('cane_session=abc123');
   });
+
+  describe('dedupe and reconnect', () => {
+    test('SOS hold: cue:sos, cue:help, alert plays sos and help once each', async () => {
+      const t = setup();
+      await t.feed.poll();
+      t.setEvents([{ seq: 1, ts: 1, type: 'cue:sos' }, { seq: 2, ts: 2, type: 'cue:help' }, { seq: 3, ts: 3, type: 'alert' }]);
+      await t.feed.poll();
+      expect(t.played).toEqual(['sos', 'help']);
+    });
+    test('all five cue orders play exactly once per incident', async () => {
+      const t = setup();
+      await t.feed.poll();
+      t.setEvents([
+        { seq: 1, ts: 1, type: 'cue:dropped' }, { seq: 2, ts: 2, type: 'cane_down' },
+        { seq: 3, ts: 3, type: 'cue:ask_ok' },
+        { seq: 4, ts: 4, type: 'cue:help' }, { seq: 5, ts: 5, type: 'alert' },
+        { seq: 6, ts: 6, type: 'cue:cancelled' }, { seq: 7, ts: 7, type: 'flow_cancelled' },
+        { seq: 8, ts: 8, type: 'cue:sos' }, { seq: 9, ts: 9, type: 'cue:help' }, { seq: 10, ts: 10, type: 'alert' },
+      ]);
+      await t.feed.poll();
+      expect(t.played).toEqual(['dropped', 'ask_ok', 'help', 'cancelled', 'sos', 'help']);
+    });
+    test('same-key incidents both play, even within 5 seq and across polls', async () => {
+      const t = setup();
+      await t.feed.poll();
+      t.setEvents([
+        { seq: 1, ts: 1, type: 'cue:help' }, { seq: 2, ts: 2, type: 'alert' },
+        { seq: 3, ts: 3, type: 'cue:help' }, { seq: 4, ts: 4, type: 'alert' },
+      ]);
+      await t.feed.poll();
+      expect(t.played).toEqual(['help', 'help']);
+      t.setEvents([
+        { seq: 1, ts: 1, type: 'cue:help' }, { seq: 2, ts: 2, type: 'alert' },
+        { seq: 3, ts: 3, type: 'cue:help' }, { seq: 4, ts: 4, type: 'alert' },
+        { seq: 20, ts: 20, type: 'cue:help' }, { seq: 21, ts: 21, type: 'alert' },
+      ]);
+      await t.feed.poll();
+      expect(t.played).toEqual(['help', 'help', 'help']);
+    });
+    test('a second legacy-only event after a consumed twin still plays', async () => {
+      const t = setup();
+      await t.feed.poll();
+      t.setEvents([{ seq: 1, ts: 1, type: 'cue:help' }, { seq: 2, ts: 2, type: 'alert' }, { seq: 3, ts: 3, type: 'alert' }]);
+      await t.feed.poll();
+      expect(t.played).toEqual(['help', 'help']);
+    });
+    test('legacy event arriving before its cue twin plays once', async () => {
+      const t = setup();
+      await t.feed.poll();
+      t.setEvents([{ seq: 1, ts: 1, type: 'cane_down' }, { seq: 2, ts: 2, type: 'cue:dropped' }]);
+      await t.feed.poll();
+      expect(t.played).toEqual(['dropped']);
+    });
+    test('twin split across polls is still suppressed, including across the baseline boundary', async () => {
+      const t = setup();
+      t.setEvents([{ seq: 1, ts: 1, type: 'cue:help' }]);
+      await t.feed.poll(); // baseline sees the cue
+      t.setEvents([{ seq: 1, ts: 1, type: 'cue:help' }, { seq: 2, ts: 2, type: 'alert' }]);
+      await t.feed.poll();
+      expect(t.played).toEqual([]);
+    });
+    test('history larger than one page (200) is never replayed', async () => {
+      const t = setup();
+      const hist: Ev[] = Array.from({ length: 250 }, (_, i) => ({ seq: i + 1, ts: i, type: 'cue:help' }));
+      t.setEvents(hist.slice(0, 200)); // Pi returns at most 200 rows per poll
+      const page = (since: number) => hist.filter((e) => e.seq > since).slice(0, 200);
+      (t as any).setEvents(page(0));
+      await t.feed.poll();
+      (t as any).setEvents(page(200));
+      await t.feed.poll();
+      expect(t.played).toEqual([]);
+    });
+    test('401 clears the session and re-pairs; cursor kept, no replay', async () => {
+      const calls: string[] = [];
+      let reject = false;
+      const fetchImpl = (async (url: string) => {
+        calls.push(url);
+        if (url.endsWith('/pair')) return new Response('{}', { status: 200, headers: { 'set-cookie': 'cane_session=abc; Path=/' } });
+        if (reject) { reject = false; return new Response('{}', { status: 401 }); }
+        return new Response(JSON.stringify({ events: [{ seq: 1, ts: 1, type: 'cue:sos' }].filter((e) => e.seq > Number(new URL(url).searchParams.get('since'))) }), { status: 200 });
+      }) as unknown as typeof fetch;
+      const played: string[] = [];
+      const feed = new CueFeed({ baseUrl: 'http://c', pairCode: '1', fetchImpl, player: { play: (k: string) => { played.push(k); } } });
+      await feed.poll();
+      reject = true;
+      await feed.poll(); // 401
+      await feed.poll(); // re-pair + poll
+      expect(calls.filter((c) => c.endsWith('/pair'))).toHaveLength(2);
+      expect(played).toEqual([]);
+    });
+  });
 });
