@@ -1,11 +1,12 @@
 import type { CaneRecord } from '../types';
-import type { ApplyPageResult, LocalStore, QueueItem } from './LocalStore';
+import type { ApplyPageResult, DeadLetter, LocalStore, QueueItem } from './LocalStore';
 
 /** In-memory LocalStore for tests and web preview. applyPage is atomic by construction. */
 export class MemoryStore implements LocalStore {
   private records = new Map<string, CaneRecord>(); // key device_id:seq
   private cursors = new Map<string, number>();
   private queue = new Map<string, QueueItem>();
+  private dead = new Map<string, DeadLetter>(); // key device_id:seq
   private meta = new Map<string, string>();
   private caches = new Map<string, string>();
   /** Test hook: throw inside applyPage after staging, to prove atomicity. */
@@ -72,11 +73,29 @@ export class MemoryStore implements LocalStore {
     this.queue.forEach((q) => {
       if (q.status === 'pending') { batches++; records += q.record_count; } else dead++;
     });
-    return { batches, records, dead };
+    return { batches, records, dead: dead + this.dead.size };
   }
 
   async completeBatch(batchId: string): Promise<void> {
     this.queue.delete(batchId);
+  }
+
+  async deadLetterRecords(batchId: string, rejects: { seq: number; reason: string; index?: number }[]): Promise<void> {
+    const q = this.queue.get(batchId);
+    if (!q) return;
+    const recs = JSON.parse(q.payload) as CaneRecord[];
+    for (const rj of rejects) {
+      const rec = recs.find((r) => r.seq === rj.seq) ?? (rj.index !== undefined ? recs[rj.index] : undefined);
+      const seq = rec?.seq ?? rj.seq;
+      this.dead.set(`${q.device_id}:${seq}`, {
+        device_id: q.device_id, seq, batch_id: batchId, reason: rj.reason,
+        record_json: rec ? JSON.stringify(rec) : null, created_ms: Date.now(),
+      });
+    }
+  }
+
+  async listDeadLetters(): Promise<DeadLetter[]> {
+    return Array.from(this.dead.values()).sort((a, b) => a.seq - b.seq);
   }
 
   async failBatch(batchId: string, nextAttemptMs: number, error: string, dead: boolean): Promise<void> {
