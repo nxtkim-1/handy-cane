@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart cane voice clip test</title>
+<style>
+  body { font-family: -apple-system, sans-serif; margin: 2rem; background: #111; color: #eee; }
+  button { font-size: 1.2rem; padding: 0.8rem 1.2rem; margin: 0.4rem 0; width: 100%; border-radius: 10px; border: 0; }
+  #enable { background: #2d7; color: #000; font-weight: bold; }
+  .clip { background: #333; color: #eee; }
+  .ok { outline: 3px solid #2d7; }
+  .missing { outline: 3px solid #d54; }
+  #status { margin-top: 1rem; white-space: pre-wrap; color: #aaa; }
+</style>
+</head>
+<body>
+<h1>Smart cane voice clips</h1>
+<p>Tap <b>Enable audio</b> first (the iPhone requires one tap before any sound can play), then tap a phrase to play its clip from the <code>voice/</code> folder.</p>
+<button id="enable">Enable audio</button>
+<div id="clips"></div>
+<div id="status"></div>
+<script>
+// The six phrase keys the cane uses (see config.py PHRASES). Looks for
+// voice/<key>.mp3 then voice/<key>.wav, served from the same folder as this page.
+const KEYS = ["dropped", "ask_ok", "help", "cancelled", "sos", "sit"];
+const status = (m) => { document.getElementById("status").textContent += m + "\n"; };
+let enabled = false;
+
+document.getElementById("enable").onclick = () => {
+  // Play a short silent buffer inside the tap so Safari unlocks audio for the page.
+  const a = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=");
+  a.play().then(() => { enabled = true; status("Audio enabled. Keep this page open and in the foreground while testing."); })
+          .catch((e) => status("Enable failed: " + e));
+};
+
+const holder = document.getElementById("clips");
+for (const key of KEYS) {
+  const b = document.createElement("button");
+  b.className = "clip";
+  b.textContent = key;
+  b.onclick = async () => {
+    if (!enabled) { status("Tap Enable audio first."); return; }
+    for (const ext of ["mp3", "wav"]) {
+      const url = "voice/" + key + "." + ext;
+      try {
+        const r = await fetch(url, { method: "HEAD" });
+        if (!r.ok) continue;
+        const a = new Audio(url);
+        await a.play();
+        b.classList.remove("missing"); b.classList.add("ok");
+        status("played " + url);
+        return;
+      } catch (e) { /* try next extension */ }
+    }
+    b.classList.add("missing");
+    status("MISSING voice/" + key + ".mp3 (or .wav) - generate or record it, then reload.");
+  };
+  holder.appendChild(b);
+}
+</script>
+</body>
+</html>
