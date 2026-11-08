@@ -162,6 +162,14 @@ export class MockApiClient implements ApiClient {
     if (this.ingestDown) throw new Error('Backend unreachable (mock)');
     const seen = this.ingested.some((b) => b.batch_id === batch.batch_id);
     if (!seen) this.ingested.push(batch);
+    // Like the real backend, turn uploaded cane events into alerts (deduplicated by event_id).
+    for (const r of batch.records) {
+      if (r.type !== 'event' || this.eventList.some((e) => e.event_id === r.event_id)) continue;
+      this.eventList.unshift({
+        event_id: r.event_id, ts: r.ts, kind: r.kind as EventItem['kind'], outcome: r.outcome as EventItem['outcome'],
+        status: 'open', time_quality: r.time_quality, dismiss_reason: null, note: null,
+      });
+    }
     const max = batch.records.reduce((m, r) => Math.max(m, r.seq), 0);
     return {
       batch_id: batch.batch_id, received: batch.records.length,

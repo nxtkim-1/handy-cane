@@ -31,7 +31,9 @@ export interface MinuteRecord {
 }
 
 export type EventKind = 'potential_fall' | 'help_press' | 'sensor_fault';
-export type EventOutcome = 'cancelled_by_user' | 'unanswered' | 'help_requested' | 'none';
+// 'unanswered'/'help_requested' are the app's older names; the cane sends 'escalated'/'acknowledged_on_cane'.
+export type EventOutcome =
+  | 'cancelled_by_user' | 'escalated' | 'acknowledged_on_cane' | 'unanswered' | 'help_requested' | 'none';
 
 export interface CaneEventRecord {
   type: 'event';

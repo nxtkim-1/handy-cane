@@ -1,7 +1,7 @@
 import React from 'react';
 import { Redirect, Tabs } from 'expo-router';
 import { useApp } from '../../src/state/services';
-import { colors } from '../../src/ui/kit';
+import { AppBar, colors } from '../../src/ui/kit';
 
 export default function PatientLayout() {
   const user = useApp((s) => s.user);
@@ -9,7 +9,7 @@ export default function PatientLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerTitleStyle: { fontSize: 22 },
+        header: () => <AppBar />,
         tabBarLabelStyle: { fontSize: 14, fontWeight: '700' },
         tabBarActiveTintColor: colors.primary,
         tabBarStyle: { minHeight: 64 },

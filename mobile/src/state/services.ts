@@ -12,6 +12,7 @@ import type { LocalStore } from '../db/LocalStore';
 import { MemoryStore } from '../db/MemoryStore';
 import { META_LAST_SYNC, runPullSync } from '../sync/pullSync';
 import { runUploadWorker } from '../sync/uploadWorker';
+import { queryClient } from './queryClient';
 
 const ENV_API = process.env.EXPO_PUBLIC_API_URL;
 const ENV_CANE = process.env.EXPO_PUBLIC_CANE_URL;
@@ -95,6 +96,13 @@ export async function saveRefreshToken(t: string | null) {
   } catch { /* secure store unavailable: not fatal */ }
 }
 
+/** Clears the session and every cached screen so the next user never sees the last one's data. */
+export async function signOut() {
+  await saveRefreshToken(null);
+  queryClient.clear();
+  useApp.getState().setUser(null);
+}
+
 export interface SyncStatus {
   syncing: boolean;
   lastSyncMs: number | null;
@@ -130,5 +138,7 @@ export const useSync = create<SyncStatus & { run(): Promise<void>; refreshStatus
     const last = await store.getMeta(META_LAST_SYNC);
     const q = await store.queueStats();
     set({ syncing: false, lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records });
+    // New alerts/records may have arrived: refresh every screen that shows them.
+    queryClient.invalidateQueries();
   },
 }));

@@ -6,7 +6,7 @@ import os
 import time
 from typing import Callable, Protocol
 
-DEFAULT_MODEL = "gemini-3.8-flash"   # MASTER 14.2; override with env GEMINI_MODEL
+DEFAULT_MODEL = "gemini-3.5-flash"   # 3.8-flash returned 504s on 2026-11-08; override with env GEMINI_MODEL
 DEFAULT_TIMEOUT_S = 30.0
 MAX_RETRIES = 2
 
