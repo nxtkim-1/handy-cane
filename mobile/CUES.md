@@ -23,8 +23,10 @@ Keys: `dropped`, `ask_ok`, `help`, `cancelled`, `sos`. Clip: `GET /voice/<key>.m
 | `flow_cancelled` (legacy) | `cancelled` |
 
 Current firmware logs `cue:<key>` right before its legacy twin (e.g. `cue:help` then
-`alert`). The feed plays the `cue:` event and suppresses one legacy twin per cue within 5 sequence numbers (a legacy event that plays also absorbs a `cue:` twin arriving within 2), so a cue never plays twice and a later incident is never swallowed. Legacy events without a recent
-`cue:` twin still play, so old firmware keeps working.
+`alert`). The feed plays the `cue:` event and suppresses one legacy twin per cue within 5 sequence numbers (a legacy event that plays also absorbs a `cue:` twin arriving within 2), so a cue never plays twice and a later incident is never swallowed.
+
+**Legacy fallback rule.** Legacy event types (`cane_down`, `alert`, `flow_cancelled`) play only until the first `cue:` event has ever been observed by the feed instance (old-firmware mode; history seen during the baseline poll counts). Once any `cue:` event is seen, legacy events never play: their `cue:` twins cover them, and twinless legacy events are intentionally silent. In particular, firmware logs `cane_down` without `cue:dropped` on an impact fall (the cane stays silent by design), so the phone stays silent too.
+
 | anything else, incl. `cue:<unknown>` | none (skipped) |
 
 ## No history replay
