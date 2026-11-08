@@ -15,10 +15,15 @@ Plan: `app/MASTER.md`. Branch: `dev/software-mvp`. Run tests: `python -m pytest 
 - `python -m cane.run_sim` runs a scripted session (walk, cancelled drop, escalated drop) and serves the API
 - 18 unit and end-to-end tests (`python -m pytest -q`)
 
-## In progress (agents, own branches)
-- agent/backend: FastAPI API, ingest, auth, seed
-- agent/reports: Gemini report pipeline, validator, template fallback
-- agent/mobile: Expo app with mock cane transport
+## Merged from agents
+- agent/backend: FastAPI API (auth, patients, ingest with dedup + replay, events, devices, audit), SQLite default,
+  Postgres DDL in backend/migrations, seed script (`python -m backend.app.seed`), 22 API tests
+- agent/reports: input builder, validator, Gemini client + fake, template fallback, pipeline, 79 tests combined
+- Wired together: `POST /v1/patients/{pid}/reports/generate` builds the input from daily_metrics, uses Gemini only
+  if GEMINI_API_KEY is set (else template), validates, stores. Tested end to end on the seeded patient.
+
+## In progress
+- agent/mobile: Expo app with mock cane transport (still running)
 
 ## Findings
 - MASTER's suggested sim decline (2%/wk active, 1.5%/wk bout) is too small for the detector to flag
