@@ -1,27 +1,39 @@
-"""Local-network feed for the cane: logged events, live status, and the voice clips.
+"""Local feed for the cane: logged events, live status, and the voice clips.
 
-The master plan (app/MASTER.md) makes the phone<->cane link HTTP-over-local-Wi-Fi first.
-This is the firmware side of that link, read-only: it never writes to the database
-and never calls anything off the Pi.
+The master plan (app/MASTER.md) makes the phone<->cane link HTTP-over-local-Wi-Fi
+first. This is the firmware side of that link, read-only: it never writes to the
+database and never calls anything off the Pi.
 
-Run from the pi/ folder:   .venv/bin/python cane_server.py
-Then on a phone on the same Wi-Fi open:   http://<pi-ip>:8000/voice_preview.html
+SAFE DEFAULT: binds to 127.0.0.1 (this Pi only). Nothing is reachable from the network.
+
+Phone testing on a Wi-Fi network you trust:
+    .venv/bin/python cane_server.py --lan
+LAN mode prints a one-time pairing code on the Pi's screen. The phone page asks for
+that code once; without it, the feed and the clips answer 401. The code changes every
+time the server starts. Never port-forward this server, and never use LAN mode on a
+network you do not trust (event logs reveal daily activity patterns).
 
 Endpoints:
-  /events?since=<seq>  new logged events after <seq>; seq is the SQLite rowid, a
-                       stable device-local sequence. time_quality says whether the
-                       Pi's clock is network-synced (the Pi has no real-time clock).
-  /status              latest detector status keys.
-  /voice_preview.html  phone page: test clips manually or auto-play them on events.
-  /voice/<key>.mp3     the voice clips themselves.
+  / or /voice_preview.html   the phone test page (contains no data itself)
+  /events?since=<seq>        events after <seq>: seq/ts/type only, no details; seq is
+                             the SQLite rowid, a stable device-local sequence
+  /status                    latest detector status keys
+  /voice/<key>.mp3|.wav      the voice clips
+  POST /pair {"code": ...}   exchanges the pairing code for a session cookie
+Only the paths above are served. Source files, the database and directory listings
+are never served. time_quality says whether the Pi clock is network-synced (the Pi
+has no real-time clock).
 """
-import json, os, sqlite3, subprocess
-from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+import argparse, http.cookies, json, os, re, secrets, subprocess
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 import db
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+PAGE = os.path.join(ROOT, "voice_preview.html")
+CLIP_RE = re.compile(r"^/voice/([A-Za-z0-9_-]{1,40})\.(mp3|wav)$")
+MIME = {"mp3": "audio/mpeg", "wav": "audio/wav"}
 
 def time_quality():
     """The Pi has no RTC; report whether the clock is network-synced."""
@@ -39,41 +51,98 @@ def _query(sql, args=()):
     finally:
         con.close()
 
-class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *a, **kw):
-        super().__init__(*a, directory=ROOT, **kw)
+class Handler(BaseHTTPRequestHandler):
+    pairing_code = None                # set only in LAN mode
 
-    def log_message(self, *a):
+    def log_message(self, *a):         # never log request lines (they could carry codes)
         pass
 
-    def _json(self, obj):
-        body = json.dumps(obj).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")   # phone browser on the same LAN
+    # --- helpers ---------------------------------------------------------
+    def _authed(self):
+        if not self.pairing_code:
+            return True                # loopback mode: this Pi only, nothing to pair against
+        c = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
+        m = c.get("cane_session")
+        return m is not None and secrets.compare_digest(m.value, self.pairing_code)
+
+    def _send(self, code, body=b"", ctype="text/plain", extra=None):
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         self.end_headers()
-        self.wfile.write(body)
+        if body and self.command != "HEAD":
+            self.wfile.write(body)
+
+    def _json(self, obj, code=200, extra=None):
+        self._send(code, json.dumps(obj).encode(), "application/json", extra)
+
+    # --- routes ----------------------------------------------------------
+    def do_POST(self):
+        u = urlparse(self.path)
+        if u.path == "/pair" and self.pairing_code:
+            n = min(int(self.headers.get("Content-Length") or 0), 200)
+            try:
+                body = json.loads(self.rfile.read(n) or b"{}")
+            except Exception:
+                body = {}
+            if secrets.compare_digest(str(body.get("code", "")), self.pairing_code):
+                self._json({"paired": True},
+                           extra={"Set-Cookie": "cane_session=%s; SameSite=Strict; Path=/; HttpOnly" % self.pairing_code})
+            else:
+                self._json({"error": "wrong code"}, 403)
+        else:
+            self._send(404)
 
     def do_GET(self):
+        self._route(head=False)
+
+    def do_HEAD(self):                 # the page probes clips with HEAD
+        self._route(head=True)
+
+    def _route(self, head):
         u = urlparse(self.path)
+        if u.path in ("/", "/voice_preview.html"):
+            self._send(200, b"" if head else open(PAGE, "rb").read(), "text/html; charset=utf-8")
+            return
+        if not self._authed():
+            self._json({"error": "pairing required"}, 401)
+            return
         if u.path == "/events":
             try:
                 since = int(parse_qs(u.query).get("since", ["0"])[0] or 0)
             except ValueError:
                 since = 0
-            rows = _query("SELECT rowid, ts, type, detail FROM events WHERE rowid>? ORDER BY rowid LIMIT 200", (since,))
+            rows = _query("SELECT rowid, ts, type FROM events WHERE rowid>? ORDER BY rowid LIMIT 200", (since,))
             self._json({"device": "cane", "time_quality": time_quality(),
-                        "events": [{"seq": r[0], "ts": r[1], "type": r[2],
-                                    "detail": json.loads(r[3] or "{}")} for r in rows]})
+                        "events": [{"seq": r[0], "ts": r[1], "type": r[2]} for r in rows]})
         elif u.path == "/status":
             rows = _query("SELECT key, value, ts FROM status")
             self._json({"device": "cane", "time_quality": time_quality(),
                         "status": {k: {"value": json.loads(v), "ts": t} for k, v, t in rows}})
         else:
-            super().do_GET()   # static files from pi/: /voice_preview.html, /voice/...
+            m = CLIP_RE.match(u.path)
+            if m:
+                p = os.path.join(ROOT, "voice", m.group(1) + "." + m.group(2))
+                if os.path.isfile(p):
+                    body = b"" if head else open(p, "rb").read()
+                    self._send(200, body, MIME[m.group(2)])
+                    return
+            self._send(404)
 
 if __name__ == "__main__":
-    port = int(os.getenv("CANE_FEED_PORT", "8000"))
-    print(f"Cane feed on http://0.0.0.0:{port} - phone page: http://<pi-ip>:{port}/voice_preview.html")
-    ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
+    ap = argparse.ArgumentParser(description="Cane local feed (safe loopback default)")
+    ap.add_argument("--lan", action="store_true",
+                    help="serve the local network with a one-time pairing code (trusted Wi-Fi only)")
+    ap.add_argument("--port", type=int, default=int(os.getenv("CANE_FEED_PORT", "8000")))
+    a = ap.parse_args()
+    if a.lan:
+        Handler.pairing_code = secrets.token_urlsafe(8)
+        print("LAN mode on a TRUSTED network only. Phone pairing code (this session only):", Handler.pairing_code, flush=True)
+        bind = "0.0.0.0"
+    else:
+        bind = "127.0.0.1"
+        print("Loopback mode: reachable from this Pi only. Use --lan on a trusted network for phone testing.", flush=True)
+    print(f"Cane feed on http://{bind}:{a.port} - phone page: /voice_preview.html", flush=True)
+    ThreadingHTTPServer((bind, a.port), Handler).serve_forever()
