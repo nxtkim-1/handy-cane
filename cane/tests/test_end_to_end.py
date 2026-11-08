@@ -2,7 +2,7 @@ import json
 import urllib.request
 
 from cane.canelink.server import serve
-from cane.canesense.store import Store
+from cane.canesense.store import Store, iso
 from cane.run_sim import run_session
 
 START = 1_790_000_040_000
@@ -79,3 +79,21 @@ def test_fall_detection_works_with_link_server_never_started():
     s = make_store()
     run_session(s, start_ms=START - 3_600_000)   # no canelink running at all
     assert any(r["type"] == "event" for r in s.pull(0, 2000)["records"])
+
+
+def test_time_sync_works_across_two_processes_sharing_one_db(tmp_path):
+    """Real deployment: the sensor loop and the link server are separate processes, each with its own
+    Store (and boot_id) on the same file. The phone's time sync must still correct the sensor's rows
+    and every row written afterwards."""
+    db = str(tmp_path / "outbox.db")
+    wrong_clock = lambda: START - 3_600_000
+    sensor = Store(db, device_id="cane-x", now_ms=wrong_clock)     # writes records, clock 1 h behind
+    link = Store(db, device_id="cane-x", now_ms=wrong_clock)       # separate process: other boot_id
+    assert sensor.boot_id != link.boot_id
+    sensor.add("minute", START - 3_600_000, {"n_samples": 3000})
+    fix = link.time_sync(START)                                    # phone says what time it really is
+    assert fix["offset_ms"] == 3_600_000 and fix["corrected"] == 1
+    sensor.add("minute", START - 3_600_000 + 60_000, {"n_samples": 3000})   # written AFTER the sync
+    recs = link.pull(0)["records"]
+    assert [r["time_quality"] for r in recs] == ["corrected", "corrected"]
+    assert recs[0]["ts"] == iso(START) and recs[1]["ts"] == iso(START + 60_000)
