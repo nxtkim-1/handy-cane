@@ -60,11 +60,11 @@ export class MockApiClient implements ApiClient {
       },
       {
         event_id: 'e2', ts: new Date(t.getTime() - 5 * 86400_000).toISOString(), kind: 'potential_fall',
-        outcome: 'unanswered', status: 'open', time_quality: 'unsynced', dismiss_reason: null, note: null,
+        outcome: 'escalated', status: 'open', time_quality: 'unsynced', dismiss_reason: null, note: null,
       },
       {
-        event_id: 'e3', ts: new Date(t.getTime() - 9 * 86400_000).toISOString(), kind: 'help_press',
-        outcome: 'help_requested', status: 'dismissed', time_quality: 'synced',
+        event_id: 'e3', ts: new Date(t.getTime() - 9 * 86400_000).toISOString(), kind: 'help_request',
+        outcome: 'escalated', status: 'dismissed', time_quality: 'synced',
         dismiss_reason: 'i_am_fine', note: 'Pressed by accident',
       },
     ];
