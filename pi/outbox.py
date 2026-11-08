@@ -91,16 +91,27 @@ class Store:
             self.db.commit()
             return cur.rowcount
 
+    def register_boot(self) -> None:
+        """Called once by the WRITER process at startup: lets /time (another process) find the
+        writer's boot before any record exists."""
+        with self.lock:
+            self.db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('writer_boot', ?)", (self.boot_id,))
+            self.db.commit()
+
     def time_sync(self, phone_utc_ms: int) -> dict:
         """Shift the current boot's unsynced rows by the measured offset and remember it for that boot.
 
         The receiver of /time (link server) is a different process from the writer, so self.boot_id
-        is NOT the writer's boot. The current boot is the boot_id of the newest record (own boot_id
-        if the table is empty). The offset is stored per boot so a later boot does not inherit it."""
+        is NOT the writer's boot. The current boot is the boot_id of the newest record, else the
+        registered meta['writer_boot'], else own boot_id. The offset is stored per boot so a later boot does not inherit it."""
         delta = phone_utc_ms - self._now_ms()
         with self.lock:
             row = self.db.execute("SELECT boot_id FROM records ORDER BY seq DESC LIMIT 1").fetchone()
-            boot = row[0] if row else self.boot_id
+            if row:
+                boot = row[0]
+            else:
+                wb = self.db.execute("SELECT value FROM meta WHERE key='writer_boot'").fetchone()
+                boot = wb[0] if wb else self.boot_id
             cur = self.db.execute(
                 "UPDATE records SET ts_ms = ts_ms + ?, quality='corrected' "
                 "WHERE boot_id=? AND quality='unsynced'", (delta, boot))
