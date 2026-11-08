@@ -88,17 +88,28 @@ credits.
 
 ### Test the clips on a phone
 
-From the `pi/` folder on the Pi or a laptop:
+The cane's feed server is safe by default: it binds to this Pi only. For phone
+testing on a Wi-Fi network you trust:
 
 ```bash
-python3 -m http.server 8000
+cd pi
+.venv/bin/python cane_server.py --lan
 ```
 
-Then on a phone on the same Wi-Fi, open `http://<computer-ip>:8000/voice_preview.html`,
-tap **Enable audio** (the iPhone requires one tap before sound can play; keep
-the page open and in the foreground), then tap each phrase. Clips that are not
-in `voice/` yet show as missing. This checks the voice and wording of the
-clips only, not the cane's final speaker output.
+It prints a one-time pairing code on the Pi's screen (it changes every restart).
+On the phone, open `http://<pi-ip>:8000/voice_preview.html`, tap **Enable audio**
+(the iPhone requires one tap before sound can play; keep the page open and in the
+foreground), and enter the pairing code when the page asks. Then tap phrases to
+play clips, or switch on **Auto-play cane events** so the phone plays a clip when
+the cane logs a `cane_down`, `alert` or `flow_cancelled` event.
+
+The feed is read-only: nothing through it can write the database or trigger the
+cane. It serves only the page, the event list (sequence, time, type - no details),
+the live status and the clips; never the source files or the database. Never
+port-forward it, and only use LAN mode on networks you trust.
+
+This checks the voice and wording of the clips and the event flow - not the
+cane's final speaker output.
 
 ## Alerts
 
