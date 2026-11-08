@@ -30,10 +30,11 @@ export interface MinuteRecord {
   max_impact_g: number;
 }
 
-export type EventKind = 'potential_fall' | 'help_press' | 'sensor_fault';
-// 'unanswered'/'help_requested' are the app's older names; the cane sends 'escalated'/'acknowledged_on_cane'.
-export type EventOutcome =
-  | 'cancelled_by_user' | 'escalated' | 'acknowledged_on_cane' | 'unanswered' | 'help_requested' | 'none';
+// Canonical backend enums (backend ingest rejects anything else).
+export type EventKind = 'potential_fall' | 'help_request' | 'impact_only';
+export type EventOutcome = 'cancelled_by_user' | 'escalated' | 'acknowledged_on_cane';
+/** Explicit FSM cause written by the firmware (pi/link.py); the outcome is never inferred without one. */
+export type EventCause = 'cane_down_impact' | 'cane_down_still' | 'sos_hold';
 
 export interface CaneEventRecord {
   type: 'event';
@@ -44,6 +45,8 @@ export interface CaneEventRecord {
   time_quality: TimeQuality;
   kind: EventKind;
   outcome: EventOutcome;
+  cause?: EventCause;
+  source?: string;
   confidence: number;
   peak_g: number;
   tilt_deg: number;
@@ -79,6 +82,6 @@ export interface IngestResponse {
   received: number;
   inserted: number;
   duplicates: number;
-  rejected: { seq: number; reason: string }[];
+  rejected: { index?: number; seq: number; reason: string }[];
   server_max_seq: number;
 }
