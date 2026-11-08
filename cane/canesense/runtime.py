@@ -10,7 +10,9 @@ from typing import Callable, Protocol
 import numpy as np
 
 from cane.canesense.features import minute_features
+from cane.canesense.features import tilt_deg
 from cane.canesense.fsm import Event, FallFSM
+from cane.canesense.live import LiveTracker
 from cane.canesense.store import Store
 from cane.common.schema import SAMPLE_RATE_HZ
 
@@ -29,8 +31,10 @@ class Buzzer(Protocol):
 
 class CaneRuntime:
     def __init__(self, sensor: Sensor, button: Button, buzzer: Buzzer, store: Store,
-                 upright: np.ndarray, fsm: FallFSM | None = None):
+                 upright: np.ndarray, fsm: FallFSM | None = None,
+                 live: LiveTracker | None = None):
         self.sensor, self.button, self.buzzer, self.store = sensor, button, buzzer, store
+        self.live = live
         self.upright = np.asarray(upright, float)
         self.fsm = fsm or FallFSM(self.upright)
         self._buf: list[np.ndarray] = []
@@ -52,6 +56,8 @@ class CaneRuntime:
         if acc is not None:
             ev = self.fsm.update(now_ms / 1000.0, acc, self.button.pressed())
             self.buzzer.set(self.fsm.buzzer)
+            if self.live is not None:
+                self.live.update(now_ms, acc, float(tilt_deg(acc[None, :], self.upright)[0]), self.fsm.state)
             if ev:
                 self._write_event(ev, now_ms)
 

@@ -14,10 +14,11 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from cane.canesense.live import LiveTracker
 from cane.canesense.store import Store
 
 
-def make_handler(store: Store):
+def make_handler(store: Store, live: LiveTracker | None = None):
     class H(BaseHTTPRequestHandler):
         def _send(self, code: int, body: dict) -> None:
             data = json.dumps(body).encode()
@@ -36,6 +37,12 @@ def make_handler(store: Store):
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             if u.path == "/info":
                 return self._send(200, store.info())
+            if u.path == "/live":
+                snap = live.snapshot() if live is not None else None
+                if snap is None:
+                    return self._send(503, {"error": {"code": "no_live_data",
+                                                      "message": "live sampling not available"}})
+                return self._send(200, snap)
             if u.path == "/pull":
                 try:
                     return self._send(200, store.pull(int(q.get("after_seq", 0)), int(q.get("limit", 500))))
@@ -60,7 +67,8 @@ def make_handler(store: Store):
     return H
 
 
-def serve(store: Store, host: str = "0.0.0.0", port: int = 8765) -> ThreadingHTTPServer:
-    srv = ThreadingHTTPServer((host, port), make_handler(store))
+def serve(store: Store, host: str = "0.0.0.0", port: int = 8765,
+          live: LiveTracker | None = None) -> ThreadingHTTPServer:
+    srv = ThreadingHTTPServer((host, port), make_handler(store, live))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv
