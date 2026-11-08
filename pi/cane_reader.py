@@ -5,6 +5,8 @@ import collections, datetime, json, os, queue, sys, time
 import numpy as np
 import config as C
 import db, voice, alerts, hardware
+from outbox import Store
+from link import CaneLink
 from detector import CaneDetector
 from features import window_features, FEATURES
 
@@ -49,37 +51,59 @@ class Cane:
         self.last_sec, self.last_tick, self.last_ml = time.time(), 0.0, 0.0
         self.stumbles_today = 0
         self.secs = 0
-
+        # passive phone-sync outbox: must never get in the way of detection
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(C.LINK_DB_PATH)), exist_ok=True)
+            store = Store(C.LINK_DB_PATH, device_id=C.DEVICE_ID,
+                          sensor_model=getattr(hw, "kind", "LIS3DH"), fw_version=C.FW_VERSION)
+            self.link = CaneLink(store, self.det.up)
+        except Exception as e:
+            print("[link] outbox unavailable:", repr(e))
+            self.link = None
 
     # ---------- drop / fall flow ----------
     def start_flow(self, impact):
-        self.flow = {"t0": time.time(), "impact": impact, "asked": False, "alerted": False, "last_help": 0}
+        self.flow = {"t0": time.time(), "impact": impact, "asked": False, "alerted": False, "last_help": 0,
+                     "origin": "down", "down_t0": time.time(), "tilt_deg": self.det.tilt,
+                     "peak_g": max((float(np.linalg.norm(s)) for s in self.window), default=None)}
         self.hw.beep(1)
         if not impact:
             voice.say("dropped")
+            db.log_event(self.con, "cue:dropped")
         db.log_event(self.con, "cane_down", impact=impact)
 
     def cancel_flow(self, why):
         if not self.flow:
             return
+        if self.link and self.flow["origin"] == "down" and not self.flow.get("fall_logged"):
+            self.link_fall("cancelled_by_user")
         if self.flow["alerted"]:
             alerts.notify(f"Update: {C.PERSON} is okay ({why}).")
         self.flow = None
         self.hw.beep(0)
         voice.say("cancelled")
+        db.log_event(self.con, "cue:cancelled")
         db.log_event(self.con, "flow_cancelled", why=why)
 
     def raise_alert(self, reason):
         if self.flow is None:
-            self.flow = {"t0": time.time(), "impact": False, "asked": True, "alerted": False, "last_help": 0}
+            self.flow = {"t0": time.time(), "impact": False, "asked": True, "alerted": False, "last_help": 0,
+                         "origin": "sos"}
         if self.flow["alerted"]:
             return
         self.flow.update(alerted=True, last_help=time.time())
         self.hw.beep(2)
         voice.say("help")
+        db.log_event(self.con, "cue:help")
         alerts.notify(f"{C.PERSON} may need help at {C.LOCATION_LABEL}: {reason}. "
                       f"He can cancel with a short press on his cane.")
         db.log_event(self.con, "alert", reason=reason)
+
+    def link_fall(self, outcome):
+        f, now = self.flow, time.time()
+        f["fall_logged"] = True                       # one potential_fall record per flow
+        self.link.fall_resolved(outcome, ts_ms=int(now * 1000), peak_g=f.get("peak_g"),
+                                tilt_deg=f.get("tilt_deg"), still_s=now - f["down_t0"], impact=f["impact"])
 
     def tick_flow(self, now):
         f = self.flow
@@ -91,9 +115,12 @@ class Cane:
         if not f["asked"] and elapsed > ask_at:
             f["asked"] = True
             voice.say("ask_ok")
+            db.log_event(self.con, "cue:ask_ok")
         if not f["alerted"] and elapsed > alert_at:
             self.raise_alert("his cane has been down with no response" +
                              (" after a hard impact" if f["impact"] else ""))
+            if self.link and f["origin"] == "down":
+                self.link_fall("escalated")
         if f["alerted"] and now - f["last_help"] > C.REPEAT_HELP_S:
             f["last_help"] = now
             voice.say("help")
@@ -109,7 +136,10 @@ class Cane:
                 db.log_event(self.con, "ok_press")
         elif kind == "SOS_HOLD":
             voice.say("sos")
+            db.log_event(self.con, "cue:sos")
             self.raise_alert("he held the SOS button")
+            if self.link:
+                self.link.help_request(ts_ms=int(time.time() * 1000))
 
     # ---------- evening step light ----------
     def tick_light(self, now):
@@ -179,7 +209,10 @@ class Cane:
                 t, ax, ay, az = self.hw.samples.get(timeout=0.1)
                 self.window.append((ax, ay, az))
                 self.det.evening = is_evening()
-                self.handle_events(self.det.update(t, ax, ay, az), t)
+                events = self.det.update(t, ax, ay, az)
+                if self.link:
+                    self.link.feed(t, ax, ay, az)
+                self.handle_events(events, t)
             except queue.Empty:
                 pass
             now = time.time()
@@ -207,7 +240,11 @@ if __name__ == "__main__":
     hw = hardware.open_cane()
     if "--calibrate" in sys.argv:
         calibrate(hw)
+    cane = None
     try:
-        Cane(hw).run()
+        cane = Cane(hw)
+        cane.run()
     finally:
+        if cane and cane.link:
+            cane.link.flush()
         hw.led(0); hw.beep(0); hw.close()
