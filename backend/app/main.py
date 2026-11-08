@@ -1,24 +1,38 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from backend.app.api.v1 import auth, devices, events, health, ingest, me, patients, reports
+from backend.app.core.config import settings, warn_if_weak_secret
 from backend.app.core.db import init_db
 
 log = logging.getLogger("smartcane")
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="Smart Cane API", version="0.1.0",
-                  description="Prototype - not a medical device. Mobility trends only.")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    warn_if_weak_secret(log)
+    sch = None
+    if settings.scheduler_enabled:
+        from backend.app.scheduler import start_scheduler
+        sch = start_scheduler()
+        log.info("scheduler started")
+    try:
+        yield
+    finally:
+        if sch is not None:
+            sch.shutdown(wait=False)
 
-    @app.on_event("startup")
-    def _startup():
-        init_db()
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="Smart Cane API", version="0.1.0", lifespan=lifespan,
+                  description="Prototype - not a medical device. Mobility trends only.")
 
     @app.exception_handler(HTTPException)
     async def http_exc(_: Request, exc: HTTPException):

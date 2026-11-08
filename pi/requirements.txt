@@ -1,0 +1,12 @@
+smbus2
+pyserial
+numpy
+pandas
+scikit-learn
+joblib
+streamlit
+requests
+google-genai
+pydantic
+# installed with apt on the Pi: python3-gpiozero python3-lgpio
+# laptop-only (Windows voice): playsound3 pyttsx3

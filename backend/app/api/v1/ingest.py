@@ -6,17 +6,20 @@ import binascii
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.core.config import settings
 from backend.app.core.db import get_db
 from backend.app.deps import ApiError, audit, get_current_user, get_membership
 from backend.app.metrics.daily import run_daily_job
-from backend.app.models import Device, DeviceAssignment, DeviceEvent, IngestBatch, MinuteMetric, Patient, User
+from backend.app import escalation, ratelimit
+from backend.app.models import (Device, DeviceAssignment, DeviceEvent, EventExtra, IngestBatch, MinuteMetric, Patient,
+                                User)
+from backend.app.severity import severity_for
 from backend.app.schemas import EventRecordIn, IngestBatchIn, MinuteRecordIn
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -71,7 +74,9 @@ def _existing_event_ids(db: Session, ids: list) -> set:
     return found
 
 
-def _process(body: IngestBatchIn, user: User, db: Session) -> dict:
+def _process(body: IngestBatchIn, user: User, db: Session, new_high: list | None = None) -> dict:
+    if new_high is not None:
+        new_high.clear()
     if len(body.records) > settings.max_batch_records:
         raise ApiError(413, "batch_too_large", f"At most {settings.max_batch_records} records per batch")
 
@@ -129,7 +134,7 @@ def _process(body: IngestBatchIn, user: User, db: Session) -> dict:
             duplicates += 1
             continue
         seen_seq.add(r.seq)
-        d = r.model_dump(exclude={"type", "raw_snippet_b64"})
+        d = r.model_dump(exclude={"type", "raw_snippet_b64", "cause", "source"})
         if r.type == "minute":
             db.add(MinuteMetric(device_id=body.device_id, is_simulated=sim, **d))
             db_ts.add(r.ts)
@@ -137,6 +142,10 @@ def _process(body: IngestBatchIn, user: User, db: Session) -> dict:
             d.pop("boot_id")  # boot_id is kept on minute rows only (MASTER 12.2)
             db.add(DeviceEvent(device_id=body.device_id, is_simulated=sim, raw_snippet=raws.get(r.event_id), **d))
             db_eids.add(r.event_id)
+            if r.cause is not None or r.source is not None:
+                db.add(EventExtra(event_id=r.event_id, cause=r.cause, source=r.source))
+            if new_high is not None and severity_for(r)[0] == "high":  # new events are always status 'open'
+                new_high.append(r.event_id)
         touched.append(r.ts)
         inserted += 1
 
@@ -160,10 +169,17 @@ def _process(body: IngestBatchIn, user: User, db: Session) -> dict:
 
 
 @router.post("/batches")
-def ingest_batches(body: IngestBatchIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def ingest_batches(body: IngestBatchIn, request: Request, background: BackgroundTasks,
+                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not ratelimit.ingest_requests.allow(str(user.user_id)):
+        raise ApiError(429, "rate_limited", "Too many ingest requests; slow down")
+    new_high: list = []
     try:
-        return _process(body, user, db)
+        resp = _process(body, user, db, new_high)
     except IntegrityError:
         # Concurrent upload of overlapping data won the race: retry once; dedup will now see their rows.
         db.rollback()
-        return _process(body, user, db)
+        resp = _process(body, user, db, new_high)
+    if new_high:  # runs after the response is sent; own session; failures are logged, never raised
+        background.add_task(escalation.notify_new_events, sessionmaker(bind=db.get_bind()), list(new_high))
+    return resp

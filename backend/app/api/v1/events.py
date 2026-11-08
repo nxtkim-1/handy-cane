@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
-from backend.app.api.v1.patients import event_to_out
+from backend.app.event_view import events_to_out
 from backend.app.core.db import get_db
 from backend.app.deps import ApiError, audit, get_current_user, get_membership
 from backend.app.models import DeviceAssignment, DeviceEvent, User
@@ -46,4 +46,4 @@ def patch_event(event_id: uuid.UUID, body: EventPatch, user: User = Depends(get_
     audit(db, user.user_id, "dismiss_event" if body.status == "dismissed" else "acknowledge_event", pid,
           {"event_id": str(event_id), "from": old, "to": body.status, "reason": body.reason, "note": body.note})
     db.commit()
-    return event_to_out(ev)
+    return events_to_out(db, [ev])[0]

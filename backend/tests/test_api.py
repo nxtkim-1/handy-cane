@@ -13,6 +13,7 @@ from backend.app import models as m
 from backend.app.core.db import Base, get_db
 from backend.app.core.security import hash_secret
 from backend.app.main import create_app
+from backend.tests.conftest import make_test_engine
 
 PW = "test-password-123"
 BOOT = str(uuid.uuid4())
@@ -21,8 +22,7 @@ DEV = "cane-test1"
 
 @pytest.fixture()
 def env():
-    eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(eng)
+    eng = make_test_engine()
     Session = sessionmaker(bind=eng, autoflush=False, expire_on_commit=False)
     app = create_app()
 

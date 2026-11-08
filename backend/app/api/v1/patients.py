@@ -6,37 +6,24 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 import numpy as np
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, func, or_, select
+from fastapi import APIRouter, Body, Depends, Query
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.app.analytics import stats as st
 from backend.app.api.v1.me import linked_patients
 from backend.app.core.db import get_db
+from backend.app.event_view import (event_to_out, events_to_out, open_events_by_severity,  # noqa: F401
+                                    patient_events_query, sort_events)
 from backend.app.deps import Access, ApiError, audit, get_current_user, require_care_team
 from backend.app.metrics.daily import metric_series, refresh_analytics, set_baseline
-from backend.app.models import (Baseline, ChangeFlag, DailyMetric, Device, DeviceAssignment, DeviceEvent, Patient,
-                                Report, User)
-from backend.app.schemas import BaselineIn, BaselineOut, DailyOut, EventOut, LinkedPatient
+from backend.app.models import (Baseline, ChangeFlag, DailyMetric, Device, DeviceAssignment, DeviceEvent, Escalation,
+                                EventExtra, MinuteMetric, Patient, Report, User)
+from backend.app.schemas import DeleteDataIn, BaselineIn, BaselineOut, DailyOut, EventOut, LinkedPatient
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
 ANY = ("self", "caregiver", "clinician")
-
-
-def event_to_out(e: DeviceEvent) -> EventOut:
-    out = EventOut.model_validate(e)
-    out.time_uncertain = e.time_quality == "unsynced"
-    return out
-
-
-def patient_events_query(patient_id):
-    """Events of devices while assigned to the patient."""
-    return select(DeviceEvent).join(
-        DeviceAssignment,
-        and_(DeviceAssignment.device_id == DeviceEvent.device_id, DeviceAssignment.patient_id == patient_id,
-             DeviceEvent.ts >= DeviceAssignment.valid_from,
-             or_(DeviceAssignment.valid_to.is_(None), DeviceEvent.ts < DeviceAssignment.valid_to)))
 
 
 def get_patient(db: Session, patient_id) -> Patient:
@@ -110,7 +97,7 @@ def list_events(patient_id: uuid.UUID, status: Optional[str] = Query(None, patte
         q = q.where(DeviceEvent.ts >= from_.astimezone(timezone.utc) if from_.tzinfo else DeviceEvent.ts >= from_.replace(tzinfo=timezone.utc))
     if to:
         q = q.where(DeviceEvent.ts <= to.astimezone(timezone.utc) if to.tzinfo else DeviceEvent.ts <= to.replace(tzinfo=timezone.utc))
-    return [event_to_out(e) for e in db.scalars(q.order_by(DeviceEvent.ts.desc()))]
+    return sort_events(events_to_out(db, list(db.scalars(q.order_by(DeviceEvent.ts.desc())))))
 
 
 @router.get("/{patient_id}/overview")
@@ -140,8 +127,8 @@ def overview(patient_id: uuid.UUID, acc: Access = Depends(require_care_team()), 
                 z = st.robust_z(np.array([med]), st.Baseline(b["median"], b["mad"], b["n_days"]))[0]
                 last7["vs_baseline_z"] = round(float(z), 2)
 
-    open_events = db.scalar(select(func.count()).select_from(patient_events_query(patient_id)
-                                                           .where(DeviceEvent.status == "open").subquery()))
+    by_sev = open_events_by_severity(db, patient_id)
+    open_events = sum(by_sev.values())
     rep = db.scalars(select(Report).where(Report.patient_id == patient_id)
                      .order_by(Report.period_end.desc())).first()
     flags = {}
@@ -159,6 +146,7 @@ def overview(patient_id: uuid.UUID, acc: Access = Depends(require_care_team()), 
                                          "active_min": t.active_min, "strikes": t.strikes},
         "last_7_valid_days": last7,
         "open_events": open_events,
+        "open_events_by_severity": by_sev,
         "latest_report": None if rep is None else {"report_id": str(rep.report_id), "period_end": str(rep.period_end),
                                                     "status": rep.status},
         "change_flags": [{"metric": m, "direction": d, "since": str(day)} for (m, d), day in flags.items()],
@@ -173,3 +161,48 @@ def record_consent(patient_id: uuid.UUID, version: str = "v1",
     audit(db, acc.user.user_id, "record_consent", patient_id, {"version": version})
     db.commit()
     return {"patient_id": str(patient_id), "consent_at": p.consent_at, "consent_version": version}
+
+
+@router.post("/{patient_id}/consent/withdraw", status_code=200)
+def withdraw_consent(patient_id: uuid.UUID, acc: Access = Depends(require_care_team("self")),
+                     db: Session = Depends(get_db)):
+    """The patient withdraws consent: ingest is refused (403 consent_required) until it is recorded again."""
+    p = get_patient(db, patient_id)
+    p.consent_at = None
+    audit(db, acc.user.user_id, "withdraw_consent", patient_id, {"version": p.consent_version})
+    db.commit()
+    return {"patient_id": str(patient_id), "consent_at": None}
+
+
+@router.delete("/{patient_id}/data", status_code=200)
+def delete_patient_data(patient_id: uuid.UUID, body: DeleteDataIn = Body(...),
+                        acc: Access = Depends(require_care_team("self")), db: Session = Depends(get_db)):
+    """Erase the patient's stored data (self only, explicit confirm). audit_log rows are kept."""
+    if body.confirm is not True:
+        raise ApiError(422, "confirm_required", 'Send {"confirm": true} to delete all stored data')
+    devs = list(db.scalars(select(DeviceAssignment.device_id).where(
+        DeviceAssignment.patient_id == patient_id, DeviceAssignment.valid_to.is_(None))))
+    counts = {}
+    if devs:
+        eids = select(DeviceEvent.event_id).where(DeviceEvent.device_id.in_(devs))
+        db.execute(delete(EventExtra).where(EventExtra.event_id.in_(eids)))
+        db.execute(delete(Escalation).where(Escalation.patient_id == patient_id))
+        counts["device_events"] = db.execute(delete(DeviceEvent).where(DeviceEvent.device_id.in_(devs))).rowcount
+        counts["minute_metrics"] = db.execute(delete(MinuteMetric).where(MinuteMetric.device_id.in_(devs))).rowcount
+    else:
+        counts["device_events"] = counts["minute_metrics"] = 0
+    for name, model in (("daily_metrics", DailyMetric), ("baselines", Baseline), ("change_flags", ChangeFlag),
+                        ("reports", Report)):
+        counts[name] = db.execute(delete(model).where(model.patient_id == patient_id)).rowcount
+    audit(db, acc.user.user_id, "delete_patient_data", patient_id, counts)
+    db.commit()
+    return {"patient_id": str(patient_id), "deleted": counts}
+
+
+@router.get("/{patient_id}/escalations")
+def list_escalations(patient_id: uuid.UUID, acc: Access = Depends(require_care_team()),
+                     db: Session = Depends(get_db)):
+    rows = db.scalars(select(Escalation).where(Escalation.patient_id == patient_id)
+                      .order_by(Escalation.sent_at.desc(), Escalation.id.desc()))
+    return [{"event_id": str(r.event_id), "sent_at": r.sent_at, "channel": r.channel, "ok": r.ok,
+             "attempt": r.attempt} for r in rows]
