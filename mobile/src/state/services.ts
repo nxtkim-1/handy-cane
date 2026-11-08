@@ -6,6 +6,7 @@ import { HttpApiClient } from '../api/ApiClient';
 import { MockApiClient } from '../api/MockApiClient';
 import type { User } from '../api/types';
 import type { CaneTransport } from '../comm/CaneTransport';
+import { CueFeed } from '../cues/CueFeed';
 import { HttpCaneTransport } from '../comm/HttpCaneTransport';
 import { MockCaneTransport } from '../comm/MockCaneTransport';
 import type { LocalStore } from '../db/LocalStore';
@@ -16,6 +17,8 @@ import { queryClient } from './queryClient';
 
 const ENV_API = process.env.EXPO_PUBLIC_API_URL;
 const ENV_CANE = process.env.EXPO_PUBLIC_CANE_URL;
+const ENV_FEED = process.env.EXPO_PUBLIC_CANE_FEED_URL;
+const ENV_PAIR = process.env.EXPO_PUBLIC_CANE_PAIR_CODE;
 
 interface AppState {
   /** mock = no backend, no hardware (default unless EXPO_PUBLIC_API_URL is set). */
@@ -72,6 +75,16 @@ export function getTransport(): CaneTransport {
     }
   }
   return transport;
+}
+
+/** Spoken voice cues from the cane's event feed. Only runs when both env vars are set. */
+let cueFeed: CueFeed | null = null;
+export function getCueFeed(): CueFeed | null {
+  if (!cueFeed && ENV_FEED && ENV_PAIR) {
+    cueFeed = new CueFeed({ baseUrl: ENV_FEED, pairCode: ENV_PAIR });
+    cueFeed.start();
+  }
+  return cueFeed;
 }
 
 export function getMockCane(): MockCaneTransport | null {
@@ -142,3 +155,6 @@ export const useSync = create<SyncStatus & { run(): Promise<void>; refreshStatus
     queryClient.invalidateQueries();
   },
 }));
+
+// Start voice cues as soon as the app state module loads (no-op unless configured).
+getCueFeed();
