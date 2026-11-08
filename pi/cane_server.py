@@ -19,12 +19,14 @@ Endpoints:
                              the SQLite rowid, a stable device-local sequence
   /status                    latest detector status keys
   /voice/<key>.mp3|.wav      the voice clips
-  POST /pair {"code": ...}   exchanges the pairing code for a session cookie
+  POST /pair {"code": ...}   exchanges the pairing code for a session token
+                             (Set-Cookie, and also returned as "session" for
+                             "Authorization: Bearer <token>")
 Only the paths above are served. Source files, the database and directory listings
 are never served. time_quality says whether the Pi clock is network-synced (the Pi
 has no real-time clock).
 """
-import argparse, http.cookies, json, os, re, secrets, subprocess
+import argparse, hmac, http.cookies, json, os, re, secrets, subprocess
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
@@ -53,6 +55,8 @@ def _query(sql, args=()):
 
 class Handler(BaseHTTPRequestHandler):
     pairing_code = None                # set only in LAN mode
+    sessions = []                      # session tokens minted by successful /pair (never logged)
+    MAX_SESSIONS = 32
 
     def log_message(self, *a):         # never log request lines (they could carry codes)
         pass
@@ -63,7 +67,18 @@ class Handler(BaseHTTPRequestHandler):
             return True                # loopback mode: this Pi only, nothing to pair against
         c = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
         m = c.get("cane_session")
-        return m is not None and secrets.compare_digest(m.value, self.pairing_code)
+        if m is not None and self._valid_session(m.value):
+            return True
+        auth = self.headers.get("Authorization", "")
+        if auth[:7].lower() == "bearer ":
+            return self._valid_session(auth[7:].strip())
+        return False
+
+    def _valid_session(self, token):
+        tb, ok = token.encode("utf-8", "replace"), False
+        for t in list(self.sessions):  # no early exit: constant work per issued token
+            ok |= hmac.compare_digest(tb, t.encode())
+        return ok
 
     def _send(self, code, body=b"", ctype="text/plain", extra=None):
         self.send_response(code)
@@ -88,8 +103,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 body = {}
             if secrets.compare_digest(str(body.get("code", "")), self.pairing_code):
-                self._json({"paired": True},
-                           extra={"Set-Cookie": "cane_session=%s; SameSite=Strict; Path=/; HttpOnly" % self.pairing_code})
+                token = secrets.token_urlsafe(24)
+                sess = Handler.sessions
+                sess.append(token)
+                del sess[:-self.MAX_SESSIONS]
+                self._json({"paired": True, "session": token},
+                           extra={"Set-Cookie": "cane_session=%s; SameSite=Strict; Path=/; HttpOnly" % token})
             else:
                 self._json({"error": "wrong code"}, 403)
         else:
