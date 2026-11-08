@@ -261,9 +261,57 @@ try:
     check("g: SOS sequence = cue:sos once then cue:help x3 (raise + 2 repeats)",
           cues(cane).count("cue:sos") == 1 and cues(cane).count("cue:help") == 3, cues(cane))
     check("g: cue:sos precedes the first cue:help", cues(cane)[0] == "cue:sos", cues(cane))
+    # h. /events carries the firmware version as a capability signal for the phone app
+    import cane_server, http.server
+    cane = new_cane()
+    cane.close() if hasattr(cane, "close") else None
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), cane_server.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        body = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{srv.server_address[1]}/events?since=0", timeout=5).read())
+    finally:
+        srv.shutdown(); srv.server_close()
+    check("h: /events includes fw == config.FW_VERSION", body.get("fw") == C.FW_VERSION and bool(body.get("fw")), body.get("fw"))
+    check("h: /events keeps device/time_quality/events keys", {"device", "time_quality", "events"} <= set(body), sorted(body))
 finally:
     _time.time = _real_time
     shutil.rmtree(_TMP, ignore_errors=True)
+
+# 7. cross-process time sync: writer (sensor loop) and server (/time) are separate Store instances
+import tempfile as _tf
+from outbox import iso
+_d7 = _tf.mkdtemp(); _db7 = os.path.join(_d7, "o.db")
+_clk = [1_000_000]
+W = Store(_db7, now_ms=lambda: _clk[0]); S = Store(_db7, now_ms=lambda: _clk[0])
+check("7: writer and server have different boot_ids", W.boot_id != S.boot_id)
+W.add("minute", 1000, {}); W.add("minute", 2000, {})
+r = S.time_sync(_clk[0] + 5000)
+check("7a: server time_sync corrects writer's rows (corrected>0, offset 5000)", r == dict(corrected=2, offset_ms=5000), r)
+rs = records(W)
+check("7a: writer rows stamped corrected and shifted", [x["time_quality"] for x in rs] == ["corrected"] * 2
+      and [x["ts"] for x in rs] == [iso(6000), iso(7000)], rs)
+W.add("minute", 3000, {})
+last = records(W)[-1]
+check("7b: new writer row gets the offset and quality corrected", last["time_quality"] == "corrected" and last["ts"] == iso(8000), last)
+W2 = Store(_db7, now_ms=lambda: _clk[0])
+W2.add("minute", 4000, {})
+last = records(W2)[-1]
+check("7c: rebooted writer has no stale offset (true clock, unsynced)",
+      last["boot_id"] == W2.boot_id and last["time_quality"] == "unsynced" and last["ts"] == iso(4000), last)
+r = S.time_sync(_clk[0] + 9000)
+check("7d: second sync corrects only W2's rows", r == dict(corrected=1, offset_ms=9000), r)
+rs = records(W)
+check("7d: W2 row corrected; W's old rows not double-shifted",
+      rs[-1]["time_quality"] == "corrected" and rs[-1]["ts"] == iso(13000)
+      and [x["ts"] for x in rs[:3]] == [iso(6000), iso(7000), iso(8000)], [(x["ts"], x["time_quality"]) for x in rs])
+W2.add("minute", 5000, {})
+check("7d: W2 later row gets W2's offset", records(W)[-1]["ts"] == iso(14000) and records(W)[-1]["time_quality"] == "corrected")
+E = Store(":memory:"); r = E.time_sync(E._now_ms() + 100)
+check("7: empty table falls back to own boot_id, returns contract", r["corrected"] == 0 and set(r) == {"corrected", "offset_ms"}, r)
+N = Store(os.path.join(_d7, "n.db"), ntp_synced=True); N.add("minute", 1000, {})
+check("7: ntp_synced rows stay synced, no offset", records(N)[0]["time_quality"] == "synced" and records(N)[0]["ts"] == iso(1000))
+for _s in (W, S, W2, E, N): _s.db.close()
+import shutil as _sh; _sh.rmtree(_d7, ignore_errors=True)
 
 fails = [n for n, ok, _ in RESULTS if not ok]
 print(f"\n{len(RESULTS) - len(fails)}/{len(RESULTS)} passed" + (f" - FAILED: {fails}" if fails else ""))
