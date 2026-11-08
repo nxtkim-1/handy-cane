@@ -35,3 +35,8 @@ export function outcomeText(o: EventItem['outcome']): string {
 export const USUAL_TEXT = 'Your usual = your median over your first 2 weeks';
 export const ACTIVE_LABEL = 'Cane-active time';
 export const STEPS_LABEL = 'Cane steps';
+
+/** Empty-data safe sentence for the 7-day median; never renders "null" or "no data min". */
+export function last7Text(median: number | null): string {
+  return median === null ? 'Not enough data yet.' : `Last 7 days with enough data: ${median} min per day (median).`;
+}
