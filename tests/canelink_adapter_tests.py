@@ -220,16 +220,47 @@ try:
     check("g: non-impact start_flow -> cue:dropped", cues(cane) == ["cue:dropped"], cues(cane))
     cane.tick_flow(_CLOCK[0] + C.ASK_AFTER_S + 1)
     check("g: ask point -> cue:ask_ok", cues(cane) == ["cue:dropped", "cue:ask_ok"], cues(cane))
-    cane.tick_flow(_CLOCK[0] + C.ALERT_AFTER_S + 1)
+    _CLOCK[0] += C.ALERT_AFTER_S + 1             # tick time == wall clock, as in the real loop
+    cane.tick_flow(_CLOCK[0])
     check("g: escalation -> cue:help", cues(cane).count("cue:help") == 1, cues(cane))
-    cane.tick_flow(_CLOCK[0] + C.ALERT_AFTER_S + C.REPEAT_HELP_S + 5)
-    check("g: repeated help line logs NO extra cue", cues(cane).count("cue:help") == 1, cues(cane))
+    t_alert = cane.flow["last_help"]
+    _CLOCK[0] = t_alert + C.REPEAT_HELP_S - 1
+    cane.tick_flow(_CLOCK[0])
+    check("g: no repeat cue before the interval elapses", cues(cane).count("cue:help") == 1, cues(cane))
+    _CLOCK[0] = t_alert + C.REPEAT_HELP_S + 1
+    cane.tick_flow(_CLOCK[0])
+    check("g: first repeat logs cue:help", cues(cane).count("cue:help") == 2, cues(cane))
+    _CLOCK[0] = t_alert + 2 * C.REPEAT_HELP_S + 2
+    cane.tick_flow(_CLOCK[0])
+    check("g: second repeat logs cue:help again", cues(cane).count("cue:help") == 3, cues(cane))
+    check("g: repeats never log cue:sos", "cue:sos" not in cues(cane), cues(cane))
     cane.cancel_flow("he pressed I'm OK")
     check("g: cancel -> cue:cancelled", cues(cane).count("cue:cancelled") == 1, cues(cane))
     cane = new_cane()
     cane.on_button("SOS_HOLD", _CLOCK[0])
     check("g: SOS hold -> cue:sos then cue:help", sorted(cues(cane)) == ["cue:help", "cue:sos"], cues(cane))
     check("g: no cue:sit ever logged", all(t != "cue:sit" for t in cues(cane)))
+    # repeats after cancel: none
+    cane = new_cane()
+    cane.start_flow(False)
+    _CLOCK[0] += C.ALERT_AFTER_S + 1
+    cane.tick_flow(_CLOCK[0])
+    cane.cancel_flow("he pressed I'm OK")
+    n = len(cues(cane))
+    _CLOCK[0] += 10 * C.REPEAT_HELP_S
+    cane.tick_flow(_CLOCK[0])
+    check("g: no cue events after cancel (flow cleared)", cane.flow is None and len(cues(cane)) == n, cues(cane))
+    # SOS: cue:sos once, then cue:help on raise and on each repeat
+    cane = new_cane()
+    cane.on_button("SOS_HOLD", _CLOCK[0])
+    t_sos = cane.flow["last_help"]
+    _CLOCK[0] = t_sos + C.REPEAT_HELP_S + 1
+    cane.tick_flow(_CLOCK[0])
+    _CLOCK[0] = t_sos + 2 * C.REPEAT_HELP_S + 2
+    cane.tick_flow(_CLOCK[0])
+    check("g: SOS sequence = cue:sos once then cue:help x3 (raise + 2 repeats)",
+          cues(cane).count("cue:sos") == 1 and cues(cane).count("cue:help") == 3, cues(cane))
+    check("g: cue:sos precedes the first cue:help", cues(cane)[0] == "cue:sos", cues(cane))
 finally:
     _time.time = _real_time
     shutil.rmtree(_TMP, ignore_errors=True)
