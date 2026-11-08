@@ -37,16 +37,28 @@ class Store:
                 boot_id TEXT NOT NULL, ts_ms INTEGER NOT NULL, quality TEXT NOT NULL,
                 type TEXT NOT NULL, payload TEXT NOT NULL, acked INTEGER NOT NULL DEFAULT 0);
             CREATE INDEX IF NOT EXISTS rec_acked ON records(acked, seq);
+            CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
         """)
         self.db.commit()
 
     # ---- writing (called only by link.py) ----
+    def _offset_key(self, boot_id: str) -> str:
+        return "clock_offset_ms:" + boot_id
+
+    def _get_offset(self, boot_id: str) -> int:
+        """Phone-measured offset for ONE boot (0 if none). Caller holds self.lock.
+        Read from the DB each time: the /time receiver is a different process from the writer."""
+        row = self.db.execute("SELECT value FROM meta WHERE key=?", (self._offset_key(boot_id),)).fetchone()
+        return int(row[0]) if row else 0
+
     def add(self, rtype: str, ts_ms: int, payload: dict) -> int:
-        quality = "synced" if self.ntp_synced else "unsynced"
         with self.lock:
+            # Only THIS writer's own boot offset applies; a rebooted Pi never inherits an old boot's offset.
+            offset = 0 if self.ntp_synced else self._get_offset(self.boot_id)
+            quality = "synced" if self.ntp_synced else ("corrected" if offset else "unsynced")
             cur = self.db.execute(
                 "INSERT INTO records(boot_id, ts_ms, quality, type, payload) VALUES (?,?,?,?,?)",
-                (self.boot_id, ts_ms, quality, rtype, json.dumps(payload)))
+                (self.boot_id, ts_ms + offset, quality, rtype, json.dumps(payload)))
             self.db.commit()
             return cur.lastrowid
 
@@ -80,20 +92,30 @@ class Store:
             return cur.rowcount
 
     def time_sync(self, phone_utc_ms: int) -> dict:
-        """Shift this boot's unsynced rows by the measured offset and trust the clock from now on."""
+        """Shift the current boot's unsynced rows by the measured offset and remember it for that boot.
+
+        The receiver of /time (link server) is a different process from the writer, so self.boot_id
+        is NOT the writer's boot. The current boot is the boot_id of the newest record (own boot_id
+        if the table is empty). The offset is stored per boot so a later boot does not inherit it."""
         delta = phone_utc_ms - self._now_ms()
         with self.lock:
+            row = self.db.execute("SELECT boot_id FROM records ORDER BY seq DESC LIMIT 1").fetchone()
+            boot = row[0] if row else self.boot_id
             cur = self.db.execute(
                 "UPDATE records SET ts_ms = ts_ms + ?, quality='corrected' "
-                "WHERE boot_id=? AND quality='unsynced'", (delta, self.boot_id))
+                "WHERE boot_id=? AND quality='unsynced'", (delta, boot))
+            self.db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?,?)",
+                            (self._offset_key(boot), str(delta)))
             self.db.commit()
-        self.clock_offset_ms = delta
         return dict(corrected=cur.rowcount, offset_ms=delta)
 
-    clock_offset_ms: int = 0
+    @property
+    def clock_offset_ms(self) -> int:
+        with self.lock:
+            return self._get_offset(self.boot_id)
 
     def now_ms(self) -> int:
-        """Clock as the Pi should now believe it (applies any phone-measured offset)."""
+        """Clock as the Pi should now believe it (applies this boot's phone-measured offset)."""
         return self._now_ms() + self.clock_offset_ms
 
     def quality_now(self) -> str:
