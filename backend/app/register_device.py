@@ -2,6 +2,7 @@
 
     python -m backend.app.register_device cane-sim              # assign to the simulated demo patient
     python -m backend.app.register_device cane-dev --live       # assign a REAL cane to the live demo patient
+    python -m backend.app.register_device cane-dev --patient-name Alex   # ...or to the Alex demo profile
     python -m backend.app.register_device cane-7f3a --patient-id <uuid>
 
 Idempotent. Without this the ingest endpoint rejects uploads from a cane it has never heard of.
@@ -20,8 +21,12 @@ from backend.app.core.security import hash_secret
 
 
 def register(db, device_id: str, patient_id: uuid.UUID | None = None, sensor_model: str = "unknown",
-             live: bool = False) -> str:
-    if live:
+             live: bool = False, patient_name: str | None = None) -> str:
+    if patient_name:
+        p = db.scalars(select(m.Patient).where(m.Patient.display_name == patient_name)).first()
+        if p is None:
+            raise SystemExit(f"No patient named {patient_name!r}. Run: python -m backend.app.seed")
+    elif live:
         p = db.scalars(select(m.Patient).where(m.Patient.display_name == "Live Demo")).first()
         if p is None:
             raise SystemExit("No live demo patient. Run: python -m backend.app.seed")
@@ -54,11 +59,12 @@ def main() -> None:
     ap.add_argument("device_id")
     ap.add_argument("--patient-id", type=uuid.UUID, default=None)
     ap.add_argument("--sensor-model", default="unknown")
+    ap.add_argument("--patient-name", default=None, help="assign to the patient with this display name, e.g. Alex")
     ap.add_argument("--live", action="store_true", help="assign to the live (non-simulated) demo patient")
     a = ap.parse_args()
     init_db()
     with SessionLocal() as db:
-        print("registered", register(db, a.device_id, a.patient_id, a.sensor_model, a.live))
+        print("registered", register(db, a.device_id, a.patient_id, a.sensor_model, a.live, a.patient_name))
 
 
 if __name__ == "__main__":

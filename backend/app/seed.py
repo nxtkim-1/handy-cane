@@ -30,7 +30,10 @@ ACCOUNTS = {
     "patient": ("patient@demo.example", "Demo Patient", "patient"),
     "caregiver": ("caregiver@demo.example", "Demo Caregiver", "caregiver"),
     "live": ("live@demo.example", "Live Demo Patient", "patient"),
+    "alex": ("alex@demo.example", "Alex", "patient"),
 }
+ALEX_NAME = "Alex"
+ALEX_HISTORY_DEVICE = "cane-alex-hist"
 LIVE_PATIENT_NAME = "Live Demo"
 
 
@@ -64,7 +67,7 @@ def _day_minutes(rng, day_utc_starts: list[datetime], active_min: float, bout_s:
     return start, rows
 
 
-def load_history(db: Session, patient: m.Patient, device: m.Device, seed: int = 7) -> int:
+def load_history(db: Session, patient: m.Patient, device: m.Device, seed: int = 7, with_events: bool = True) -> int:
     sim = simulate(seed=seed)
     n = sim["config"]["days"]
     tz = ZoneInfo(TZ)
@@ -100,9 +103,10 @@ def load_history(db: Session, patient: m.Patient, device: m.Device, seed: int = 
         db.add(m.DeviceEvent(event_id=uuid.uuid4(), ts=ts.astimezone(timezone.utc), device_id=device.device_id,
                              seq=seq, time_quality="synced", kind=kind, outcome=outcome, confidence=0.6,
                              peak_g=peak, tilt_deg=80, still_s=11.0, is_simulated=True))
-    ev(3, "potential_fall", "cancelled_by_user", 4.1)
-    ev(10, "help_request", "acknowledged_on_cane", 1.2)
-    ev(20, "impact_only", "cancelled_by_user", 3.2)
+    if with_events:
+        ev(3, "potential_fall", "cancelled_by_user", 4.1)
+        ev(10, "help_request", "acknowledged_on_cane", 1.2)
+        ev(20, "impact_only", "cancelled_by_user", 3.2)
     device.last_seq, device.last_seen_at = seq, datetime.now(timezone.utc)
     db.flush()
     run_daily_job(db, patient.patient_id)
@@ -130,9 +134,43 @@ def seed_live(db: Session) -> str:
     return str(p.patient_id)
 
 
+def seed_alex(db: Session) -> str:
+    """The patient for LIVE demos: 8 weeks of simulated history (so charts and reports are not empty), consent
+    given, a caregiver and a clinician linked, and NO old open alerts, so the only alerts on screen are the ones
+    the real cane creates during the demo. Register the real cane to Alex with:
+        python -m backend.app.register_device <cane id> --patient-name Alex
+    The patient is flagged simulated because the history is; events from the real cane are not flagged.
+    """
+    p = db.scalars(select(m.Patient).where(m.Patient.display_name == ALEX_NAME)).first()
+    if p is not None:
+        return str(p.patient_id)
+    alex, caregiver, clin = _user(db, "alex"), _user(db, "caregiver"), _user(db, "clinician")
+    n_days = simulate()["config"]["days"]
+    today = datetime.now(timezone.utc).astimezone(ZoneInfo(TZ)).date()
+    p = m.Patient(user_id=alex.user_id, display_name=ALEX_NAME, timezone=TZ, report_anchor=today - timedelta(days=n_days),
+                  is_simulated=True, consent_at=datetime.now(timezone.utc), consent_version="demo-v1")
+    db.add(p)
+    db.flush()
+    for u, rel, dismiss in ((alex, "self", True), (caregiver, "caregiver", False), (clin, "clinician", True)):
+        db.add(m.CareTeam(patient_id=p.patient_id, user_id=u.user_id, relation=rel, can_dismiss_events=dismiss,
+                          granted_by=alex.user_id))
+    dev = m.Device(device_id=ALEX_HISTORY_DEVICE, sensor_model="simulated history", fw_version="sim", is_simulated=True,
+                   secret_hash=hash_secret(uuid.uuid4().hex))
+    db.add(dev)
+    db.flush()
+    midnight = datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
+    db.add(m.DeviceAssignment(device_id=ALEX_HISTORY_DEVICE, patient_id=p.patient_id,
+                              valid_from=midnight - timedelta(days=n_days + 2), valid_to=midnight))
+    db.flush()
+    load_history(db, p, dev, seed=11, with_events=False)
+    db.commit()
+    return str(p.patient_id)
+
+
 def seed(db: Session, reset: bool = False) -> dict:
     out = _seed_simulated(db, reset)
     out["live_patient_id"] = seed_live(db)
+    out["alex_patient_id"] = seed_alex(db)
     return out
 
 

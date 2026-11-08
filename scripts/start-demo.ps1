@@ -69,8 +69,8 @@ if ($Simulated) {
 }
 
 if ($CaneUrl -ne "") {
-  Step "Registering the real cane ($CaneDeviceId) to the LIVE patient"
-  docker compose exec -T api python -m backend.app.register_device $CaneDeviceId --live | Out-Null
+  Step "Registering the real cane ($CaneDeviceId) to the Alex demo profile"
+  docker compose exec -T api python -m backend.app.register_device $CaneDeviceId --patient-name Alex | Out-Null
 }
 
 $api = "http://${ip}:8000"
@@ -83,7 +83,7 @@ if ($cane -ne "") { Write-Host "  Cane    : $cane" } else { Warn "No cane addres
 Write-Host "  Logins (password demo-password-1):"
 Write-Host "    clinician@demo.example  - sees both patients"
 Write-Host "    patient@demo.example    - 8 weeks of SIMULATED history$(if ($Simulated) { ' + the simulated cane' })"
-Write-Host "    live@demo.example       - the LIVE patient$(if ($CaneUrl -ne '') { ' (your real cane syncs here)' } else { ' (no real cane connected yet)' })"
+Write-Host "    alex@demo.example       - ALEX, the live-demo patient: 8 weeks of simulated history$(if ($CaneUrl -ne '') { ' + your REAL cane' } else { ' (no real cane connected yet)' })"
 Write-Host ""
 
 if ($NoExpo) { Write-Host "(-NoExpo: not starting Expo.)"; exit 0 }
