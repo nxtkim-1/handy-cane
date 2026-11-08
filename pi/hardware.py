@@ -10,6 +10,14 @@ class _Base:
     def __init__(self):
         self.samples = queue.Queue(maxsize=3000)
         self.events = queue.Queue()
+        self._stop = threading.Event()           # set by close(): every worker loop exits
+        self._threads = []
+    def _spawn(self, target, *args):
+        if self._stop.is_set():
+            return
+        t = threading.Thread(target=target, args=args, daemon=True)
+        self._threads = [x for x in self._threads if x.is_alive()] + [t]
+        t.start()
     def _put(self, s):
         try:
             self.samples.put_nowait(s)
@@ -17,7 +25,12 @@ class _Base:
             self.samples.get_nowait(); self.samples.put_nowait(s)
     def beep(self, mode): pass
     def led(self, level): pass
-    def close(self): pass
+    def close(self, timeout=2.0):
+        self._stop.set()
+        me = threading.current_thread()
+        for t in list(self._threads):
+            if t is not me:
+                t.join(timeout)
 
 # ---------- Grove modules wired straight to the Pi ----------
 class PiCane(_Base):
@@ -39,8 +52,8 @@ class PiCane(_Base):
         self.light = PWMLED(C.PIN_LED)
         self.mode, self.mode_t0, self.press_t, self.sos_sent = 0, time.time(), None, False
         self._lock = threading.Lock()
-        threading.Thread(target=self._sample_loop, daemon=True).start()
-        threading.Thread(target=self._buzzer_loop, daemon=True).start()
+        self._spawn(self._sample_loop)
+        self._spawn(self._buzzer_loop)
         self._tone(1500, 0.1)                     # boot chirp
 
     def _detect(self):
@@ -75,24 +88,24 @@ class PiCane(_Base):
 
     def _sample_loop(self):
         period, nxt = 1 / C.SAMPLE_HZ, time.perf_counter()
-        while True:
+        while not self._stop.is_set():
             try:
                 ax, ay, az = self._read()
                 self._put((time.time(), ax, ay, az))
             except OSError as e:                  # a loose cable: report it, keep trying
                 print("I2C read failed:", e)
-                time.sleep(0.5)
+                self._stop.wait(0.5)
             nxt += period
-            time.sleep(max(0.0, nxt - time.perf_counter()))
+            self._stop.wait(max(0.0, nxt - time.perf_counter()))
 
     # --- button: quick press = I'm OK, hold 2 s = SOS, rising beeps while held ---
     def _pressed(self):
         self.press_t, self.sos_sent = time.time(), False
-        threading.Thread(target=self._hold_feedback, daemon=True).start()
+        self._spawn(self._hold_feedback)
     def _hold_feedback(self):
-        while self.button.is_pressed and not self.sos_sent:
+        while self.button.is_pressed and not self.sos_sent and not self._stop.is_set():
             self._tone(800 + (time.time() - self.press_t) * 500, 0.06)
-            time.sleep(0.44)
+            self._stop.wait(0.44)
     def _held(self):
         self.sos_sent = True
         self.events.put("SOS_HOLD")
@@ -104,27 +117,36 @@ class PiCane(_Base):
 
     # --- buzzer and light ---
     def _tone(self, freq, secs):
-        with self._lock:
+        if self._stop.is_set():
+            return
+        with self._lock:                          # one tone at a time; wait() wakes early on close()
             self.buzzer.frequency = freq
             self.buzzer.value = 0.5
-            time.sleep(secs)
+            self._stop.wait(secs)
             self.buzzer.value = 0
     def _buzzer_loop(self):
-        while True:
+        while not self._stop.is_set():
             if self.button.is_pressed or self.mode == 0:
-                time.sleep(0.05); continue
+                self._stop.wait(0.05); continue
             t = (time.time() - self.mode_t0) % 1.0
             if self.mode == 1:                    # locator
-                self._tone(2000, 0.15); time.sleep(0.85)
+                self._tone(2000, 0.15); self._stop.wait(0.85)
             elif self.mode == 2:                  # alarm, two-tone
                 self._tone(2400 if t < 0.5 else 1800, 0.25)
     def beep(self, mode):
         if mode == 3:
-            threading.Thread(target=self._tone, args=(1800, 0.12), daemon=True).start()
+            self._spawn(self._tone, 1800, 0.12)
             return
         self.mode, self.mode_t0 = mode, time.time()
     def led(self, level):
         self.light.value = max(0, min(255, level)) / 255
+    def close(self, timeout=2.0):
+        super().close(timeout)
+        for dev in (self.buzzer, self.light, self.button, self.bus):
+            try:
+                dev.close()
+            except Exception:
+                pass
 
 # ---------- Arduino + Grove shield on the Pi's USB (cane_firmware.ino) ----------
 class SerialCane(_Base):
@@ -133,9 +155,9 @@ class SerialCane(_Base):
         import serial
         self.port = serial.Serial(C.SERIAL_PORT, C.BAUD, timeout=1)
         time.sleep(2)                             # the Uno resets when the port opens
-        threading.Thread(target=self._loop, daemon=True).start()
+        self._spawn(self._loop)
     def _loop(self):
-        while True:
+        while not self._stop.is_set():
             line = self.port.readline().decode(errors="ignore").strip()
             if line.startswith("D,"):
                 try:
@@ -151,19 +173,27 @@ class SerialCane(_Base):
         self.port.write(f"BEEP,{mode}\n".encode())
     def led(self, level):
         self.port.write(f"LED,{int(level)}\n".encode())
+    def close(self, timeout=2.0):
+        super().close(timeout)                    # readline() times out after 1 s, so the loop exits
+        try:
+            self.port.close()
+        except Exception:
+            pass
 
 # ---------- replay a recording (test the software anywhere) ----------
 class FakeCane(_Base):
     def __init__(self, path):
         super().__init__()
         self.path = path
-        threading.Thread(target=self._loop, daemon=True).start()
+        self._spawn(self._loop)
     def _loop(self):
-        while True:
+        while not self._stop.is_set():
             with open(self.path) as f:
                 for row in csv.DictReader(f):
+                    if self._stop.is_set():
+                        return
                     self._put((time.time(), float(row["ax"]), float(row["ay"]), float(row["az"])))
-                    time.sleep(1 / C.SAMPLE_HZ)
+                    self._stop.wait(1 / C.SAMPLE_HZ)
     def beep(self, mode): print("[beep]", mode)
     def led(self, level): print("[led]", level)
 
