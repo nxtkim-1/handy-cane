@@ -21,6 +21,8 @@ export interface CuePlaying {
 export class CuePlayer implements CuePlaying {
   private queue: Array<{ key: string; session: CueSession }> = [];
   private running = false;
+  /** Web only: key -> object URL of the fetched clip (native uses the file cache). */
+  private blobUrls = new Map<string, string>();
 
   play(key: string, session: CueSession): void {
     if (!(CUE_KEYS as readonly string[]).includes(key)) return;
@@ -35,15 +37,39 @@ export class CuePlayer implements CuePlaying {
       let item;
       while ((item = this.queue.shift())) {
         try {
-          const uri = await this.ensureClip(item.key, item.session);
+          const web = isWeb();
+          const uri = web
+            ? await this.ensureWebClip(item.key, item.session)
+            : await this.ensureClip(item.key, item.session);
           await this.playFile(uri);
         } catch (e) {
+          const stale = this.blobUrls.get(item.key);
+          if (stale) { URL.revokeObjectURL(stale); this.blobUrls.delete(item.key); }
           console.warn(`[cues] could not play "${item.key}":`, e instanceof Error ? e.message : e);
         }
       }
     } finally {
       this.running = false;
     }
+  }
+
+  /** Web: documentDirectory is null, so fetch with the bearer header and play from an object URL. */
+  private async ensureWebClip(key: string, s: CueSession): Promise<string> {
+    const cached = this.blobUrls.get(key);
+    if (cached) return cached;
+    const res = await fetch(`${s.baseUrl.replace(/\/+$/, '')}/voice/${key}.mp3`, {
+      headers: { Authorization: `Bearer ${s.token}` },
+    });
+    if (!res.ok) throw new Error(`clip download failed (HTTP ${res.status})`);
+    const url = URL.createObjectURL(await res.blob());
+    this.blobUrls.set(key, url);
+    return url;
+  }
+
+  /** Web: revoke all cached object URLs (e.g. on sign-out). */
+  disposeWebCache(): void {
+    for (const url of this.blobUrls.values()) URL.revokeObjectURL(url);
+    this.blobUrls.clear();
   }
 
   private async ensureClip(key: string, s: CueSession): Promise<string> {
@@ -83,6 +109,10 @@ export class CuePlayer implements CuePlaying {
       player.play();
     });
   }
+}
+
+function isWeb(): boolean {
+  return (require('react-native') as typeof import('react-native')).Platform.OS === 'web';
 }
 
 export const cuePlayer = new CuePlayer();
