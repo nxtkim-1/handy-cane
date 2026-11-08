@@ -12,7 +12,7 @@ import { MockCaneTransport } from '../comm/MockCaneTransport';
 import type { LocalStore } from '../db/LocalStore';
 import { MemoryStore } from '../db/MemoryStore';
 import { META_LAST_SYNC, runPullSync } from '../sync/pullSync';
-import { runUploadWorker } from '../sync/uploadWorker';
+import { describeRejects, runUploadWorker } from '../sync/uploadWorker';
 import { queryClient } from './queryClient';
 
 const ENV_API = process.env.EXPO_PUBLIC_API_URL;
@@ -152,6 +152,8 @@ export interface SyncStatus {
   message: string | null;
   error: string | null;
   waitingToUpload: number;
+  /** Actionable text when the server permanently rejected records (persisted dead letters). */
+  rejectedMessage: string | null;
 }
 
 export const useSync = create<SyncStatus & { run(): Promise<void>; refreshStatus(): Promise<void> }>((set) => ({
@@ -160,11 +162,12 @@ export const useSync = create<SyncStatus & { run(): Promise<void>; refreshStatus
   message: null,
   error: null,
   waitingToUpload: 0,
+  rejectedMessage: null,
   async refreshStatus() {
     const store = await getStore();
     const last = await store.getMeta(META_LAST_SYNC);
     const q = await store.queueStats();
-    set({ lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records });
+    set({ lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records, rejectedMessage: describeRejects(await store.listDeadLetters()) });
   },
   async run() {
     set({ syncing: true, error: null, message: null });
@@ -180,7 +183,10 @@ export const useSync = create<SyncStatus & { run(): Promise<void>; refreshStatus
     } catch { /* queue retained */ }
     const last = await store.getMeta(META_LAST_SYNC);
     const q = await store.queueStats();
-    set({ syncing: false, lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records });
+    set({
+      syncing: false, lastSyncMs: last ? Number(last) : null, waitingToUpload: q.records,
+      rejectedMessage: describeRejects(await store.listDeadLetters()),
+    });
     // New alerts/records may have arrived: refresh every screen that shows them.
     queryClient.invalidateQueries();
   },
