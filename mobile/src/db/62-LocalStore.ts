@@ -1,0 +1,77 @@
+import type { CaneRecord } from '../types';
+
+export interface QueueItem {
+  batch_id: string;
+  device_id: string;
+  fw_version: string;
+  /** JSON array of CaneRecord */
+  payload: string;
+  record_count: number;
+  attempts: number;
+  next_attempt_ms: number;
+  status: 'pending' | 'dead';
+  last_error: string | null;
+}
+
+/** A record the server permanently rejected (validation failure). Never retried. */
+export interface DeadLetter {
+  device_id: string;
+  seq: number;
+  batch_id: string;
+  reason: string;
+  /** The rejected record as JSON (null if the server named a seq not in the batch). */
+  record_json: string | null;
+  created_ms: number;
+}
+
+export interface ApplyPageResult {
+  inserted: number;
+  duplicates: number;
+}
+
+/**
+ * Local persistence (MASTER 15.1). All methods are async so the expo-sqlite
+ * implementation and the in-memory test implementation are interchangeable.
+ */
+export interface LocalStore {
+  getCursor(deviceId: string): Promise<number>;
+
+  /**
+   * ONE atomic transaction: insert records (ignoring duplicates on
+   * device_id+seq), advance the cursor, and enqueue the newly inserted
+   * records as a single upload batch. Either everything is stored or nothing.
+   */
+  applyPage(args: {
+    deviceId: string;
+    fwVersion: string;
+    records: CaneRecord[];
+    nextCursor: number;
+    batchId: string;
+  }): Promise<ApplyPageResult>;
+
+  listRecords(deviceId: string, sinceTs?: string): Promise<CaneRecord[]>;
+  countRecords(deviceId: string): Promise<number>;
+
+  // upload_queue
+  dueBatches(nowMs: number, limit: number): Promise<QueueItem[]>;
+  /** `dead` = permanently parked batches + dead-lettered (server-rejected) records. */
+  queueStats(): Promise<{ batches: number; records: number; dead: number }>;
+  /**
+   * Retain server-rejected records of a batch as DEAD with their reasons (no retry).
+   * Idempotent per (device_id, seq). Does not remove the batch: call completeBatch afterwards.
+   */
+  deadLetterRecords(batchId: string, rejects: { seq: number; reason: string; index?: number }[]): Promise<void>;
+  listDeadLetters(): Promise<DeadLetter[]>;
+  completeBatch(batchId: string): Promise<void>;
+  failBatch(batchId: string, nextAttemptMs: number, error: string, dead: boolean): Promise<void>;
+
+  // key/value (last sync, etc.)
+  getMeta(key: string): Promise<string | null>;
+  setMeta(key: string, value: string): Promise<void>;
+
+  // caches for offline reading
+  putCache(kind: 'reports' | 'events', key: string, json: string): Promise<void>;
+  getCache(kind: 'reports' | 'events', key: string): Promise<string | null>;
+  /** Drops the offline copies of reports and alerts (sign out, delete my data). The upload queue is kept. */
+  clearCaches(): Promise<void>;
+}
