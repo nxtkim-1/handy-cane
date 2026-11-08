@@ -2,7 +2,7 @@
   One command to bring up the laptop side of the demo.
 
     .\scripts\start-demo.ps1 -Simulated               # simulated cane on this laptop (no hardware needed)
-    .\scripts\start-demo.ps1 -CaneUrl http://192.168.43.50:8765   # real cane (Pi started with --lan)
+    .\scripts\start-demo.ps1 -CaneUrl http://192.168.43.50:8765   # REAL cane (Pi started with --lan) -> live patient
     .\scripts\start-demo.ps1 -Simulated -Local        # no internet: local database instead of Tiger Cloud
     .\scripts\start-demo.ps1 -Simulated -NoExpo       # everything except the Expo server (for checks)
 
@@ -14,6 +14,7 @@
 param(
   [switch]$Simulated,
   [string]$CaneUrl = "",
+  [string]$CaneDeviceId = "cane-dev",   # the real cane's device_id (its /info shows it); firmware default is cane-dev
   [switch]$Local,
   [switch]$NoExpo
 )
@@ -67,6 +68,11 @@ if ($Simulated) {
   Start-Sleep -Seconds 4
 }
 
+if ($CaneUrl -ne "") {
+  Step "Registering the real cane ($CaneDeviceId) to the LIVE patient"
+  docker compose exec -T api python -m backend.app.register_device $CaneDeviceId --live | Out-Null
+}
+
 $api = "http://${ip}:8000"
 if ($CaneUrl -ne "") { $cane = $CaneUrl } elseif ($Simulated) { $cane = "http://${ip}:8765" } else { $cane = "" }
 
@@ -74,7 +80,10 @@ Write-Host ""
 Write-Host "READY" -ForegroundColor Green
 Write-Host "  Backend : $api      (test on the phone's browser: $api/health)"
 if ($cane -ne "") { Write-Host "  Cane    : $cane" } else { Warn "No cane address given. Set 'Cane address' in the app, or rerun with -CaneUrl or -Simulated." }
-Write-Host "  Logins  : patient@demo.example / clinician@demo.example   password: demo-password-1"
+Write-Host "  Logins (password demo-password-1):"
+Write-Host "    clinician@demo.example  - sees both patients"
+Write-Host "    patient@demo.example    - 8 weeks of SIMULATED history$(if ($Simulated) { ' + the simulated cane' })"
+Write-Host "    live@demo.example       - the LIVE patient$(if ($CaneUrl -ne '') { ' (your real cane syncs here)' } else { ' (no real cane connected yet)' })"
 Write-Host ""
 
 if ($NoExpo) { Write-Host "(-NoExpo: not starting Expo.)"; exit 0 }

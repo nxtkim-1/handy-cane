@@ -1,6 +1,7 @@
 """Register a cane in the backend and assign it to a patient (a stand-in for the pairing flow).
 
     python -m backend.app.register_device cane-sim              # assign to the simulated demo patient
+    python -m backend.app.register_device cane-dev --live       # assign a REAL cane to the live demo patient
     python -m backend.app.register_device cane-7f3a --patient-id <uuid>
 
 Idempotent. Without this the ingest endpoint rejects uploads from a cane it has never heard of.
@@ -18,8 +19,13 @@ from backend.app.core.db import SessionLocal, init_db
 from backend.app.core.security import hash_secret
 
 
-def register(db, device_id: str, patient_id: uuid.UUID | None = None, sensor_model: str = "unknown") -> str:
-    if patient_id is None:
+def register(db, device_id: str, patient_id: uuid.UUID | None = None, sensor_model: str = "unknown",
+             live: bool = False) -> str:
+    if live:
+        p = db.scalars(select(m.Patient).where(m.Patient.display_name == "Live Demo")).first()
+        if p is None:
+            raise SystemExit("No live demo patient. Run: python -m backend.app.seed")
+    elif patient_id is None:
         p = db.scalars(select(m.Patient).where(m.Patient.is_simulated == True)).first()  # noqa: E712
         if p is None:
             raise SystemExit("No simulated demo patient found. Run: python -m backend.app.seed")
@@ -30,7 +36,7 @@ def register(db, device_id: str, patient_id: uuid.UUID | None = None, sensor_mod
     dev = db.get(m.Device, device_id)
     if dev is None:
         dev = m.Device(device_id=device_id, sensor_model=sensor_model, fw_version="manual",
-                       secret_hash=hash_secret(uuid.uuid4().hex), is_simulated=bool(p.is_simulated))
+                       secret_hash=hash_secret(uuid.uuid4().hex), is_simulated=bool(p.is_simulated))  # real cane -> False
         db.add(dev)
         db.flush()
     open_assignment = db.scalars(select(m.DeviceAssignment).where(
@@ -48,10 +54,11 @@ def main() -> None:
     ap.add_argument("device_id")
     ap.add_argument("--patient-id", type=uuid.UUID, default=None)
     ap.add_argument("--sensor-model", default="unknown")
+    ap.add_argument("--live", action="store_true", help="assign to the live (non-simulated) demo patient")
     a = ap.parse_args()
     init_db()
     with SessionLocal() as db:
-        print("registered", register(db, a.device_id, a.patient_id, a.sensor_model))
+        print("registered", register(db, a.device_id, a.patient_id, a.sensor_model, a.live))
 
 
 if __name__ == "__main__":
