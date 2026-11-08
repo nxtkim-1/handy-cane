@@ -1,24 +1,39 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { Body, Button, Card, H1, H2, Loading, Screen, SimulatedBadge } from '../../src/ui/kit';
+import {
+  Body, Button, Card, ErrorBox, H1, H2, HighAlertBanner, Loading, Screen, SimulatedBadge,
+} from '../../src/ui/kit';
 import { getApi, useApp, useSync } from '../../src/state/services';
-import { ACTIVE_LABEL, USUAL_TEXT, fmtAgo } from '../../src/ui/format';
+import { ACTIVE_LABEL, USUAL_TEXT } from '../../src/ui/format';
+import { SyncStatusLines, usePullRefresh } from '../../src/ui/parts';
+import { highAlertText } from '../../src/api/severity';
 
 export default function Home() {
   const router = useRouter();
   const user = useApp((s) => s.user)!;
   const pid = useApp((s) => s.activePatientId)!;
   const sync = useSync();
-  useEffect(() => { sync.refreshStatus(); }, []);
+  const refresh = usePullRefresh();
   const q = useQuery({ queryKey: ['overview', pid], queryFn: () => getApi().overview(pid) });
 
-  if (q.isLoading || !q.data) return <Screen><Loading /></Screen>;
+  if (q.isLoading) return <Screen><Loading /></Screen>;
+  if (q.isError || !q.data) {
+    return (
+      <Screen onRefresh={refresh.onRefresh} refreshing={refresh.refreshing}>
+        <H1>Hello, {user.display_name}</H1>
+        <ErrorBox message="Could not load your summary. Check your connection." onRetry={() => q.refetch()} />
+        <SyncStatusLines />
+      </Screen>
+    );
+  }
   const o = q.data;
   const down = o.change_flags.find((f) => f.direction === 'down');
+  const high = o.open_events_by_severity.high;
 
   return (
-    <Screen>
+    <Screen onRefresh={refresh.onRefresh} refreshing={refresh.refreshing}>
+      {high > 0 && <HighAlertBanner text={highAlertText(high)} onPress={() => router.push('/alerts')} />}
       <H1>Hello, {user.display_name}</H1>
       <SimulatedBadge show={o.patient.is_simulated} />
 
@@ -44,15 +59,20 @@ export default function Home() {
 
       <Card>
         <H2>Cane</H2>
-        <Body>Last synced: {fmtAgo(sync.lastSyncMs)}</Body>
+        <SyncStatusLines />
         <Button label="Sync now" loading={sync.syncing} onPress={() => sync.run()} />
       </Card>
 
-      {o.latest_report && (
+      {o.latest_report ? (
         <Card>
           <H2>Latest report</H2>
           <Body>For the period ending {o.latest_report.period_end}</Body>
           <Button label="Read report" kind="secondary" onPress={() => router.push('/reports')} />
+        </Card>
+      ) : (
+        <Card>
+          <H2>Latest report</H2>
+          <Body sub>No report yet. One is written after about two weeks of cane data.</Body>
         </Card>
       )}
     </Screen>

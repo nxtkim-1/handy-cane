@@ -24,7 +24,12 @@
    "is_simulated": true,
    "consent_at": "2026-11-08T09:46:24.954114Z",
    "relation": "self",
-   "can_dismiss_events": true
+   "can_dismiss_events": true,
+   "open_events": 3,
+   "open_high_events": 1,
+   "last_sync_at": "2026-11-08T09:47:38.245296+00:00",
+   "sustained_change": true,
+   "stale_sync": false
   }
  ],
  "overview": {
@@ -44,7 +49,7 @@
   "today": {
    "day": "2026-11-08",
    "valid_so_far": false,
-   "coverage_h": 0.0,
+   "coverage_h": 0,
    "active_min": null,
    "strikes": null
   },
@@ -75,19 +80,24 @@
     "direction": "down",
     "since": "2026-10-17"
    }
-  ]
+  ],
+  "open_events_by_severity": {
+   "high": 1,
+   "medium": 1,
+   "low": 1
+  }
  },
  "daily": [
   {
    "day": "2026-09-13",
    "valid": true,
    "no_data": false,
-   "coverage_h": 12.0,
+   "coverage_h": 12,
    "active_min": 67.833,
    "strikes": 2924,
    "bouts": 27,
-   "bout_median_s": 180.0,
-   "bout_longest_s": 420.0,
+   "bout_median_s": 180,
+   "bout_longest_s": 420,
    "rhythm_cv_median": 0.12640929596553777,
    "active_by_hour": [
     0,
@@ -124,12 +134,12 @@
    "day": "2026-09-14",
    "valid": true,
    "no_data": false,
-   "coverage_h": 12.0,
+   "coverage_h": 12,
    "active_min": 69.8,
    "strikes": 3111,
    "bouts": 33,
-   "bout_median_s": 180.0,
-   "bout_longest_s": 360.0,
+   "bout_median_s": 180,
+   "bout_longest_s": 360,
    "rhythm_cv_median": 0.1286501635782022,
    "active_by_hour": [
     0,
@@ -166,12 +176,12 @@
    "day": "2026-09-15",
    "valid": true,
    "no_data": false,
-   "coverage_h": 12.0,
+   "coverage_h": 12,
    "active_min": 65.683,
    "strikes": 2946,
    "bouts": 22,
-   "bout_median_s": 240.0,
-   "bout_longest_s": 420.0,
+   "bout_median_s": 240,
+   "bout_longest_s": 420,
    "rhythm_cv_median": 0.12610295386890744,
    "active_by_hour": [
     0,
@@ -208,7 +218,7 @@
    "day": "2026-09-23",
    "valid": false,
    "no_data": false,
-   "coverage_h": 4.0,
+   "coverage_h": 4,
    "active_min": null,
    "strikes": null,
    "bouts": null,
@@ -234,13 +244,13 @@
     "n_days": 14
    },
    "strikes": {
-    "median": 2863.0,
-    "mad": 179.0,
+    "median": 2863,
+    "mad": 179,
     "n_days": 14
    },
    "bout_median_s": {
-    "median": 180.0,
-    "mad": 15.0,
+    "median": 180,
+    "mad": 15,
     "n_days": 14
    }
   },
@@ -249,24 +259,6 @@
   "created_at": "2026-11-08T09:47:46.050111Z"
  },
  "events": [
-  {
-   "event_id": "cc2c33c1-616e-4695-bb0e-93103ed3f110",
-   "device_id": "cane-sim01",
-   "ts": "2026-11-05T19:00:00Z",
-   "time_quality": "synced",
-   "time_uncertain": false,
-   "kind": "potential_fall",
-   "outcome": "cancelled_by_user",
-   "confidence": 0.6,
-   "peak_g": 4.1,
-   "tilt_deg": 80.0,
-   "still_s": 11.0,
-   "status": "open",
-   "status_reason": null,
-   "status_by": null,
-   "status_at": null,
-   "is_simulated": true
-  },
   {
    "event_id": "be333381-5268-44cc-b575-8c24ddf7c9c8",
    "device_id": "cane-sim01",
@@ -277,13 +269,37 @@
    "outcome": "acknowledged_on_cane",
    "confidence": 0.6,
    "peak_g": 1.2,
-   "tilt_deg": 80.0,
-   "still_s": 11.0,
+   "tilt_deg": 80,
+   "still_s": 11,
    "status": "open",
    "status_reason": null,
    "status_by": null,
    "status_at": null,
-   "is_simulated": true
+   "is_simulated": true,
+   "severity": "high",
+   "severity_reason": "The help button was pressed on the cane.",
+   "cause": null
+  },
+  {
+   "event_id": "cc2c33c1-616e-4695-bb0e-93103ed3f110",
+   "device_id": "cane-sim01",
+   "ts": "2026-11-05T19:00:00Z",
+   "time_quality": "synced",
+   "time_uncertain": false,
+   "kind": "potential_fall",
+   "outcome": "cancelled_by_user",
+   "confidence": 0.6,
+   "peak_g": 4.1,
+   "tilt_deg": 80,
+   "still_s": 11,
+   "status": "open",
+   "status_reason": null,
+   "status_by": null,
+   "status_at": null,
+   "is_simulated": true,
+   "severity": "medium",
+   "severity_reason": "A possible fall was cancelled on the cane, but the impact was strong.",
+   "cause": null
   },
   {
    "event_id": "1060a37c-4e1b-445f-9174-b048ffc927ec",
@@ -295,13 +311,16 @@
    "outcome": "cancelled_by_user",
    "confidence": 0.6,
    "peak_g": 3.2,
-   "tilt_deg": 80.0,
-   "still_s": 11.0,
+   "tilt_deg": 80,
+   "still_s": 11,
    "status": "open",
    "status_reason": null,
    "status_by": null,
    "status_at": null,
-   "is_simulated": true
+   "is_simulated": true,
+   "severity": "low",
+   "severity_reason": "The cane was bumped or dropped, with no sign of a fall.",
+   "cause": null
   }
  ],
  "reports": [
@@ -377,5 +396,21 @@
    "created_at": "2026-11-08T10:05:05.824565Z"
   }
  ],
- "report_id": "74c95660-541a-49a8-bb30-c2aa32aabb85"
+ "report_id": "74c95660-541a-49a8-bb30-c2aa32aabb85",
+ "escalations": [
+  {
+   "event_id": "be333381-5268-44cc-b575-8c24ddf7c9c8",
+   "sent_at": "2026-11-08T09:50:00Z",
+   "channel": "sms",
+   "ok": true,
+   "attempt": 1
+  },
+  {
+   "event_id": "be333381-5268-44cc-b575-8c24ddf7c9c8",
+   "sent_at": "2026-11-08T09:45:00Z",
+   "channel": "push",
+   "ok": false,
+   "attempt": 1
+  }
+ ]
 }

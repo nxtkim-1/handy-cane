@@ -93,6 +93,7 @@ export class MemoryStore implements LocalStore {
   async putCache(kind: 'reports' | 'events', key: string, json: string) {
     this.caches.set(`${kind}:${key}`, json);
   }
+  async clearCaches() { this.caches.clear(); }
   async getCache(kind: 'reports' | 'events', key: string) {
     return this.caches.get(`${kind}:${key}`) ?? null;
   }

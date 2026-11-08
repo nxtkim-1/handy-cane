@@ -1,12 +1,52 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DISMISS_REASONS, type EventItem, type Report } from '../api/types';
-import { getApi, getStore } from '../state/services';
-import { Badge, Body, Button, Card, Chip, ErrorText, H2, Loading, SimulatedBadge, colors } from './kit';
-import { eventTitle, fmtDateTime, outcomeText } from './format';
+import { caneConfigured, getApi, getStore, useSync } from '../state/services';
+import { syncStatusLines } from '../sync/scheduler';
+import {
+  Badge, Body, Button, Card, Chip, EmptyBox, ErrorBox, ErrorText, H2, Loading, SeverityBadge, SimulatedBadge, colors,
+} from './kit';
+import { queryClient } from '../state/queryClient';
+import { eventTitle, fmtAgo, fmtDateTime, outcomeText } from './format';
 import { ActivityBars, TrendChart } from './charts';
 import { bandOf, computeBaseline, toTrendPoints } from '../charts/trend';
+
+/** "Last synced 2 min ago", "Waiting to upload: N records", "Cane not reachable". */
+export function SyncStatusLines() {
+  const lastSyncMs = useSync((s) => s.lastSyncMs);
+  const waitingToUpload = useSync((s) => s.waitingToUpload);
+  const caneState = useSync((s) => s.caneState);
+  const refreshStatus = useSync((s) => s.refreshStatus);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    refreshStatus().catch(() => {});
+    const id = setInterval(() => { setTick((t) => t + 1); refreshStatus().catch(() => {}); }, 30_000);
+    return () => clearInterval(id);
+  }, [refreshStatus]);
+  const lines = syncStatusLines({ lastSyncMs, waitingToUpload, caneState, caneConfigured: caneConfigured() }, fmtAgo);
+  return (
+    <View accessible accessibilityLiveRegion="polite" accessibilityLabel={lines.join('. ')}>
+      {lines.map((l) => (
+        <Body key={l} style={l.startsWith('Cane not') ? { color: colors.warn, fontWeight: '700' } : undefined}>{l}</Body>
+      ))}
+    </View>
+  );
+}
+
+/** Pull-to-refresh for a screen: refetches every query that is currently on screen. */
+export function usePullRefresh() {
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.refetchQueries({ type: 'active' });
+    } catch { /* each section shows its own error */ } finally {
+      setRefreshing(false);
+    }
+  };
+  return { refreshing, onRefresh };
+}
 
 export function useDaily(pid: string, days = 56) {
   return useQuery({
@@ -24,7 +64,8 @@ export function useDaily(pid: string, days = 56) {
 export function TrendSection({ pid, weeks = 8 }: { pid: string; weeks?: number }) {
   const q = useDaily(pid, weeks * 7);
   if (q.isLoading) return <Loading />;
-  if (!q.data) return <Body>Could not load the trend. Pull down to try again.</Body>;
+  if (!q.data) return <ErrorBox message="Could not load the trend." onRetry={() => q.refetch()} />;
+  if (q.data.points.length === 0) return <EmptyBox>No cane data yet, so there is no trend to show.</EmptyBox>;
   return (
     <View style={{ gap: 8 }}>
       <TrendChart points={q.data.points} band={bandOf(q.data.baseline)} />
@@ -36,7 +77,8 @@ export function TrendSection({ pid, weeks = 8 }: { pid: string; weeks?: number }
 export function WeekBars({ pid, days = 14 }: { pid: string; days?: number }) {
   const q = useDaily(pid, days);
   if (q.isLoading) return <Loading />;
-  if (!q.data) return null;
+  if (!q.data) return <ErrorBox message="Could not load your activity." onRetry={() => q.refetch()} />;
+  if (q.data.points.length === 0) return <EmptyBox>No cane data yet. Activity will appear after the cane has synced.</EmptyBox>;
   return <ActivityBars points={q.data.points.slice(-days)} />;
 }
 
@@ -76,13 +118,19 @@ export function AlertsList({
   });
 
   if (q.isLoading) return <Loading />;
-  if (!q.data || q.data.length === 0) return <Body>No alerts. Nothing needs your attention.</Body>;
+  if (q.isError || !q.data) return <ErrorBox message="Could not load the alerts." onRetry={() => q.refetch()} />;
+  if (q.data.length === 0) return <EmptyBox>No alerts. Nothing needs your attention.</EmptyBox>;
 
+  // The server already sorts: open first, then severity, then newest. Keep that order.
   return (
     <View style={{ gap: 12 }}>
+      {dismissing === null && <ErrorText>{error}</ErrorText>}
       {q.data.map((e) => (
-        <Card key={e.event_id} tone={e.status === 'open' ? 'warn' : undefined}>
+        <Card key={e.event_id} tone={e.status === 'open' ? (e.severity === 'high' ? 'danger' : 'warn') : undefined}>
+          <SeverityBadge severity={e.severity} />
           <H2>{eventTitle(e)}</H2>
+          <Body>{e.severity_reason}</Body>
+          {e.cause ? <Body sub>Likely cause: {e.cause}</Body> : null}
           <Body>{fmtDateTime(e.ts)}</Body>
           <Body sub>{outcomeText(e.outcome)}</Body>
           {e.time_quality === 'unsynced' && <Badge text="TIME UNCERTAIN" color={colors.warn} />}
@@ -163,11 +211,13 @@ export function ReportsList({ pid, canGenerate }: { pid: string; canGenerate: bo
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reports', pid] }),
   });
   if (q.isLoading) return <Loading />;
+  if (q.isError || !q.data) return <ErrorBox message="Could not load the reports." onRetry={() => q.refetch()} />;
   return (
     <View style={{ gap: 12 }}>
+      {gen.isError && <ErrorText>Could not make a report right now. Try again in a moment.</ErrorText>}
       {q.data?.offline && <Badge text="SAVED COPY (OFFLINE)" color={colors.warn} />}
       {canGenerate && <Button label="Generate report now" loading={gen.isPending} onPress={() => gen.mutate()} />}
-      {(q.data?.rows ?? []).length === 0 && <Body>No reports yet.</Body>}
+      {(q.data?.rows ?? []).length === 0 && <EmptyBox>No reports yet. A report is written after about two weeks of cane data.</EmptyBox>}
       {(q.data?.rows ?? []).map((r) => <ReportCard key={r.report_id} r={r} />)}
     </View>
   );

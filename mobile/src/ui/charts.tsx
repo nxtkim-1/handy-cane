@@ -27,7 +27,7 @@ export function TrendChart({ points, band }: { points: TrendPoint[]; band: Band 
         {band && (
           <Rect
             x={PAD.l} width={W - PAD.l - PAD.r} y={y(band.high)} height={Math.max(2, y(band.low) - y(band.high))}
-            fill="#CFE0F5" />
+            fill={colors.bandFill} />
         )}
         {band && (
           <Line x1={PAD.l} x2={W - PAD.r} y1={y(band.median)} y2={y(band.median)} stroke={colors.primary} strokeDasharray="4 4" strokeWidth={1.5} />
