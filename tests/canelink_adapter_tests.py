@@ -313,6 +313,70 @@ check("7: ntp_synced rows stay synced, no offset", records(N)[0]["time_quality"]
 for _s in (W, S, W2, E, N): _s.db.close()
 import shutil as _sh; _sh.rmtree(_d7, ignore_errors=True)
 
+# 8. explicit session token (Bearer) alongside the cookie
+import http.server, urllib.error, cane_server
+def _req(port, path, headers=None, body=None):
+    rq = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=body, headers=headers or {})
+    try:
+        r = urllib.request.urlopen(rq, timeout=5); return r.status, r.read(), r.headers
+    except urllib.error.HTTPError as e:
+        return e.code, e.read(), e.headers
+_old = (cane_server.Handler.pairing_code, list(cane_server.Handler.sessions))
+cane_server.Handler.pairing_code, cane_server.Handler.sessions = "pairme123", []
+_srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), cane_server.Handler)
+threading.Thread(target=_srv.serve_forever, daemon=True).start()
+_pt = _srv.server_address[1]
+_d8 = _tf.mkdtemp(); _old_db = db.DB_PATH; db.DB_PATH = os.path.join(_d8, "feed.db")
+_clip = os.path.join(cane_server.ROOT, "voice", "zz_test_clip.wav")
+try:
+    os.makedirs(os.path.dirname(_clip), exist_ok=True); open(_clip, "wb").write(b"RIFFtest")
+    st, b, h = _req(_pt, "/pair", body=json.dumps({"code": "pairme123"}).encode())
+    j = json.loads(b); tok = j.get("session")
+    check("8a: /pair JSON has paired + session token", st == 200 and j.get("paired") is True and bool(tok) and tok != "pairme123", j)
+    check("8a: cookie still set and carries the session token", ("cane_session=%s" % tok) in (h.get("Set-Cookie") or ""), h.get("Set-Cookie"))
+    check("8a: no CORS headers", h.get("Access-Control-Allow-Origin") is None)
+    bad = _req(_pt, "/pair", body=json.dumps({"code": "nope"}).encode())[0]
+    check("8a: wrong code still 403", bad == 403, bad)
+    A = {"Authorization": "Bearer " + tok}
+    check("8b: bearer /events 200", _req(_pt, "/events", A)[0] == 200)
+    check("8b: bearer /status 200", _req(_pt, "/status", A)[0] == 200)
+    check("8b: bearer /voice 200", _req(_pt, "/voice/zz_test_clip.wav", A)[0] == 200)
+    W_ = {"Authorization": "Bearer wrong" + tok}
+    check("8b: wrong bearer 401 (events, voice)", _req(_pt, "/events", W_)[0] == 401 and _req(_pt, "/voice/zz_test_clip.wav", W_)[0] == 401)
+    check("8b: no auth 401 (events, voice, status)", all(_req(_pt, p)[0] == 401 for p in ("/events", "/voice/zz_test_clip.wav", "/status")))
+    check("8b: pairing code is not a bearer/cookie", _req(_pt, "/events", {"Authorization": "Bearer pairme123"})[0] == 401
+          and _req(_pt, "/events", {"Cookie": "cane_session=pairme123"})[0] == 401)
+    C_ = {"Cookie": "cane_session=" + tok}
+    check("8b: cookie path still works", _req(_pt, "/events", C_)[0] == 200 and _req(_pt, "/voice/zz_test_clip.wav", C_)[0] == 200)
+finally:
+    _srv.shutdown(); _srv.server_close()
+    cane_server.Handler.pairing_code, cane_server.Handler.sessions = _old
+    db.DB_PATH = _old_db; _sh.rmtree(_d8, ignore_errors=True)
+    try: os.remove(_clip)
+    except OSError: pass
+
+# 9. boot registration: /time before the first record is keyed to the writer's registered boot
+_d9 = _tf.mkdtemp(); _db9 = os.path.join(_d9, "b.db"); _c9 = [1000]
+Wa = Store(_db9, now_ms=lambda: _c9[0]); Wa.register_boot()
+Sv = Store(_db9, now_ms=lambda: _c9[0])               # link server: separate instance, no register
+r = Sv.time_sync(_c9[0] + 5000)
+check("9: /time before any row returns offset, nothing to correct", r == dict(corrected=0, offset_ms=5000), r)
+check("9: offset keyed to registered writer boot, not server boot",
+      Wa._get_offset(Wa.boot_id) == 5000 and Sv._get_offset(Sv.boot_id) == 0)
+Wa.add("minute", 2000, {}); Wa.add("minute", 3000, {})
+rs = records(Wa)
+check("9: first rows get the offset and are corrected",
+      [x["time_quality"] for x in rs] == ["corrected"] * 2 and [x["ts"] for x in rs] == [iso(7000), iso(8000)], rs)
+Wb = Store(_db9, now_ms=lambda: _c9[0]); Wb.register_boot()
+Wb.add("minute", 4000, {})
+last = records(Wb)[-1]
+check("9: after reboot (new register_boot) rows stay unsynced, old offset not applied",
+      last["boot_id"] == Wb.boot_id and last["time_quality"] == "unsynced" and last["ts"] == iso(4000), last)
+r = Sv.time_sync(_c9[0] + 9000)
+check("9: fresh /time corrects only the new boot", r == dict(corrected=1, offset_ms=9000), r)
+for _s in (Wa, Sv, Wb): _s.db.close()
+_sh.rmtree(_d9, ignore_errors=True)
+
 fails = [n for n, ok, _ in RESULTS if not ok]
 print(f"\n{len(RESULTS) - len(fails)}/{len(RESULTS)} passed" + (f" - FAILED: {fails}" if fails else ""))
 sys.exit(1 if fails else 0)
