@@ -19,24 +19,24 @@ export function fmtAgo(ms: number | null, now = Date.now()): string {
 export function eventTitle(e: Pick<EventItem, 'kind'>): string {
   switch (e.kind) {
     case 'potential_fall': return 'Potential fall or cane drop';
-    case 'help_press':
     case 'help_request': return 'Help button pressed';
     case 'impact_only': return 'Bump or impact';
-    case 'sensor_fault': return 'Cane sensor problem';
   }
 }
 
 export function outcomeText(o: EventItem['outcome']): string {
   switch (o) {
     case 'cancelled_by_user': return 'Cancelled on the cane';
-    case 'unanswered':
     case 'escalated': return 'Not answered on the cane';
     case 'acknowledged_on_cane': return 'Alarm switched off on the cane';
-    case 'help_requested': return 'Help was requested';
-    default: return 'No outcome recorded';
   }
 }
 
 export const USUAL_TEXT = 'Your usual = your median over your first 2 weeks';
 export const ACTIVE_LABEL = 'Cane-active time';
 export const STEPS_LABEL = 'Cane steps';
+
+/** Empty-data safe sentence for the 7-day median; never renders "null" or "no data min". */
+export function last7Text(median: number | null): string {
+  return median === null ? 'Not enough data yet.' : `Last 7 days with enough data: ${median} min per day (median).`;
+}
