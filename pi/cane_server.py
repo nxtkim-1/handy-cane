@@ -115,7 +115,8 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 since = 0
             rows = _query("SELECT rowid, ts, type FROM events WHERE rowid>? ORDER BY rowid LIMIT 200", (since,))
-            self._json({"device": "cane", "time_quality": time_quality(),
+            import config                 # lazy, like db: capability signal for the phone app
+            self._json({"device": "cane", "time_quality": time_quality(), "fw": config.FW_VERSION,
                         "events": [{"seq": r[0], "ts": r[1], "type": r[2]} for r in rows]})
         elif u.path == "/status":
             rows = _query("SELECT key, value, ts FROM status")

@@ -69,3 +69,9 @@ BUTTON_PULL_UP = os.getenv("CANE_BUTTON_PULL_UP", "0") == "1"  # 1 = plain push 
 PIN_BUZZER = 12     # Grove Base Hat port PWM
 PIN_LED = 16        # Grove Base Hat port D16
 SAMPLE_HZ = 100
+
+# ---------- phone sync outbox (link.py / link_server.py) ----------
+DEVICE_ID = os.getenv("CANE_DEVICE_ID", "cane-dev")
+LINK_DB_PATH = os.getenv("CANE_LINK_DB", os.path.join(os.path.dirname(DB_PATH), "outbox.db"))
+LINK_PORT = int(os.getenv("CANE_LINK_PORT", "8765"))
+FW_VERSION = "0.4.0"
