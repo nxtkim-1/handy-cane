@@ -3,7 +3,7 @@
 ## Local, with Docker (API + TimescaleDB)
 ```
 cp .env.example .env        # then edit: JWT_SECRET (32+ random chars), GEMINI_API_KEY (optional)
-docker compose up --build   # API on http://localhost:8000 (docs at /docs), DB on localhost:5433
+docker compose --profile local up --build   # API on http://localhost:8000 (docs at /docs), DB on localhost:5433
 docker compose exec api python -m backend.app.seed     # demo accounts + 8 weeks of simulated data
 ```
 Demo logins (password `demo-password-1`): `clinician@demo.example`, `patient@demo.example`, `caregiver@demo.example`.
