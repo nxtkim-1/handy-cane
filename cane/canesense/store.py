@@ -37,12 +37,17 @@ class Store:
                 boot_id TEXT NOT NULL, ts_ms INTEGER NOT NULL, quality TEXT NOT NULL,
                 type TEXT NOT NULL, payload TEXT NOT NULL, acked INTEGER NOT NULL DEFAULT 0);
             CREATE INDEX IF NOT EXISTS rec_acked ON records(acked, seq);
+            CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
         """)
         self.db.commit()
 
     # ---- writing (called only by canesense) ----
     def add(self, rtype: str, ts_ms: int, payload: dict) -> int:
-        quality = "synced" if self.ntp_synced else "unsynced"
+        # The sensing process and the link process each have their own Store on the same file, so the
+        # phone-measured clock offset is shared through the database, not through memory.
+        offset = 0 if self.ntp_synced else self.clock_offset_ms
+        quality = "synced" if self.ntp_synced else ("corrected" if offset else "unsynced")
+        ts_ms += offset
         with self.lock:
             cur = self.db.execute(
                 "INSERT INTO records(boot_id, ts_ms, quality, type, payload) VALUES (?,?,?,?,?)",
@@ -80,17 +85,29 @@ class Store:
             return cur.rowcount
 
     def time_sync(self, phone_utc_ms: int) -> dict:
-        """Shift this boot's unsynced rows by the measured offset and trust the clock from now on."""
+        """Correct the CURRENT boot's unsynced rows and remember the offset for rows written from now on.
+
+        "Current boot" = the boot_id of the newest record, because the process that writes records (the
+        sensor loop) is not the process that receives /time (the link server) and their own boot_ids
+        differ. Rows from earlier boots stay 'unsynced' (MASTER 7.5): their offset is unknown.
+        """
         delta = phone_utc_ms - self._now_ms()
         with self.lock:
+            row = self.db.execute("SELECT boot_id FROM records ORDER BY seq DESC LIMIT 1").fetchone()
+            boot = row[0] if row else self.boot_id
             cur = self.db.execute(
                 "UPDATE records SET ts_ms = ts_ms + ?, quality='corrected' "
-                "WHERE boot_id=? AND quality='unsynced'", (delta, self.boot_id))
+                "WHERE boot_id=? AND quality='unsynced'", (delta, boot))
+            self.db.execute("INSERT INTO meta(key,value) VALUES('clock_offset_ms',?) "
+                            "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(delta),))
             self.db.commit()
-        self.clock_offset_ms = delta
         return dict(corrected=cur.rowcount, offset_ms=delta)
 
-    clock_offset_ms: int = 0
+    @property
+    def clock_offset_ms(self) -> int:
+        with self.lock:
+            row = self.db.execute("SELECT value FROM meta WHERE key='clock_offset_ms'").fetchone()
+        return int(row[0]) if row else 0
 
     def now_ms(self) -> int:
         """Clock as the Pi should now believe it (applies any phone-measured offset)."""
