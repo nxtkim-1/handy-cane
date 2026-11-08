@@ -54,4 +54,6 @@ export interface LocalStore {
   // caches for offline reading
   putCache(kind: 'reports' | 'events', key: string, json: string): Promise<void>;
   getCache(kind: 'reports' | 'events', key: string): Promise<string | null>;
+  /** Drops the offline copies of reports and alerts (sign out, delete my data). The upload queue is kept. */
+  clearCaches(): Promise<void>;
 }
