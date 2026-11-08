@@ -210,4 +210,4 @@ if __name__ == "__main__":
     try:
         Cane(hw).run()
     finally:
-        hw.led(0); hw.beep(0)
+        hw.led(0); hw.beep(0); hw.close()
