@@ -4,7 +4,8 @@ const MAX_QUEUE = 2;
 
 export interface CueSession {
   baseUrl: string;
-  cookie: string;
+  /** Bearer session token from POST /pair (never a cookie). */
+  token: string;
 }
 
 export interface CuePlaying {
@@ -13,7 +14,7 @@ export interface CuePlaying {
 
 /**
  * Plays cane voice clips. Clips are fetched once from the cane over the local
- * network (with the session cookie) and cached in the app's document directory.
+ * network (with the bearer session token) and cached in the app's document directory.
  * They are never bundled with the app or committed to the repo.
  * expo modules are loaded lazily so this file is import-safe under jest.
  */
@@ -46,14 +47,14 @@ export class CuePlayer implements CuePlaying {
   }
 
   private async ensureClip(key: string, s: CueSession): Promise<string> {
-    const FS = await import('expo-file-system/legacy');
+    const FS = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
     const dir = `${FS.documentDirectory}cues/`;
     const path = `${dir}${key}.mp3`;
     const info = await FS.getInfoAsync(path);
     if (info.exists) return path;
     await FS.makeDirectoryAsync(dir, { intermediates: true }).catch(() => {});
     const res = await FS.downloadAsync(`${s.baseUrl.replace(/\/+$/, '')}/voice/${key}.mp3`, path, {
-      headers: { Cookie: s.cookie },
+      headers: { Authorization: `Bearer ${s.token}` },
     });
     if (res.status !== 200) {
       await FS.deleteAsync(path, { idempotent: true }).catch(() => {});
@@ -63,7 +64,7 @@ export class CuePlayer implements CuePlaying {
   }
 
   private async playFile(uri: string): Promise<void> {
-    const { createAudioPlayer } = await import('expo-audio');
+    const { createAudioPlayer } = require('expo-audio') as typeof import('expo-audio');
     const player = createAudioPlayer({ uri });
     await new Promise<void>((resolve) => {
       let done = false;
