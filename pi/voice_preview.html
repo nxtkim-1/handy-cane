@@ -13,6 +13,9 @@
   .clip { background: #333; color: #eee; }
   .ok { outline: 3px solid #2d7; }
   .missing { outline: 3px solid #d54; }
+  #pairbox { display: none; margin: 1rem 0; }
+  #pairbox input { font-size: 1.1rem; padding: 0.6rem; width: 100%; box-sizing: border-box; border-radius: 8px; border: 0; }
+  #pairbtn { background: #d90; color: #000; font-weight: bold; }
   #status { margin-top: 1rem; white-space: pre-wrap; color: #aaa; }
 </style>
 </head>
@@ -20,23 +23,50 @@
 <h1>Smart cane voice clips</h1>
 <p>Tap <b>Enable audio</b> first (the iPhone requires one tap before any sound can play), then tap a phrase to play its clip from the <code>voice/</code> folder.</p>
 <button id="enable">Enable audio</button>
+<div id="pairbox">
+  <p>This Pi asks for a pairing code. It is printed on the Pi's screen where cane_server.py is running. It changes every time the server restarts.</p>
+  <input id="code" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Pairing code">
+  <button id="pairbtn">Pair</button>
+</div>
 <div id="clips"></div>
 <button id="auto">Auto-play cane events: OFF</button>
 <div id="status"></div>
 <script>
 // The six phrase keys the cane uses (see config.py PHRASES). Looks for
-// voice/<key>.mp3 then voice/<key>.wav, served from the same folder as this page.
+// voice/<key>.mp3 then voice/<key>.wav, served by cane_server.py on the Pi.
 const KEYS = ["dropped", "ask_ok", "help", "cancelled", "sos", "sit"];
 // Which logged cane event plays which clip in auto mode (see cane_reader.py log_event calls).
 const EVENT_CLIPS = { cane_down: "dropped", alert: "help", flow_cancelled: "cancelled" };
 const status = (m) => { document.getElementById("status").textContent += m + "\n"; };
+const pairbox = document.getElementById("pairbox");
 let enabled = false;
+
+function needPair() {
+  pairbox.style.display = "block";
+  status("Pairing needed - enter the code shown on the Pi's screen.");
+}
+
+document.getElementById("pairbtn").onclick = async () => {
+  const code = document.getElementById("code").value.trim();
+  if (!code) return;
+  try {
+    const r = await fetch("pair", { method: "POST", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ code }) });
+    if (r.ok) {
+      pairbox.style.display = "none";
+      status("Paired with the cane.");
+    } else {
+      status("Wrong code - check the Pi's screen and try again.");
+    }
+  } catch (e) { status("Could not reach the cane server."); }
+};
 
 async function playClip(key) {
   for (const ext of ["mp3", "wav"]) {
     const url = "voice/" + key + "." + ext;
     try {
       const r = await fetch(url, { method: "HEAD" });
+      if (r.status === 401) { needPair(); return false; }
       if (!r.ok) continue;
       const a = new Audio(url);
       await a.play();
@@ -46,7 +76,7 @@ async function playClip(key) {
     } catch (e) { /* try next extension */ }
   }
   mark(key, false);
-  status("MISSING voice/" + key + ".mp3 (or .wav) - generate or record it, then reload.");
+  status("MISSING voice/" + key + ".mp3 (or .wav) - generate or record it on the Pi, then reload.");
   return false;
 }
 function mark(key, ok) {
@@ -93,13 +123,14 @@ autoBtn.onclick = () => {
   }
 };
 async function poll() {
-  let data;
+  let data, r;
   try {
-    const r = await fetch("events?since=" + (lastSeq || 0));
+    r = await fetch("events?since=" + (lastSeq || 0));
+    if (r.status === 401) { needPair(); autoBtn.click(); return; }
     if (!r.ok) throw new Error("HTTP " + r.status);
     data = await r.json();
   } catch (e) {
-    status("Cane feed unreachable - is cane_server.py running on the Pi and this page served from it?");
+    status("Cane feed unreachable - is cane_server.py running with --lan on the Pi, and this page served from it?");
     autoBtn.click();   // turn back off
     return;
   }
