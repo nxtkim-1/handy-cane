@@ -21,7 +21,8 @@ Severity is a prioritization heuristic computed from the event (what happened, w
 - `cane/` - CaneLink bridge and cane sensing libraries, with a simulator (`run_sim.py`)
 - `backend/` - FastAPI backend: events, alerts, reports, severity ordering
 - `mobile/` - Expo / React Native companion app (patient, caregiver, clinician)
-- `firmware/`, `hardware/`, `interface/`, `app/` - original planning notes and scaffolds
+- `firmware/`, `hardware/`, `interface/`, `app/` - original planning notes, v1 tray STLs, and scaffolds
+- `hardware/cad_v2/`, `hardware/fusion360/` - v2 parametric B-Rep CAD (`STEP`/`STL`/`3MF`), automated clearance/inertia verification, renders, A3 General Arrangement sheet, and Fusion 360 starter script ([docs/PRODUCT_REDESIGN_V2.md](docs/PRODUCT_REDESIGN_V2.md))
 - `tools/` - session recording and evaluation utilities
 - `tests/` - cane regression tests and fixtures
 - `docs/` - setup, deployment, and data-collection notes

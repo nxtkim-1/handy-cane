@@ -1,0 +1,10 @@
+{
+  "autodeskProduct": "Fusion360",
+  "type": "script",
+  "author": "Thomas Kim",
+  "description": {
+    "": "Imports HandyCane v2 parametric B-Rep STEP assembly, organizes sub-assemblies, assigns engineering materials and appearances, and registers live User Parameters."
+  },
+  "supportedOS": "windows|mac",
+  "editEnabled": true
+}

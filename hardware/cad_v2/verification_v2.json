@@ -1,0 +1,953 @@
+{
+  "project": "HandyCane v2 \u2014 Automated CAD, Clearance & Physics Verification Report",
+  "evidence_tag": "[CAD/ANALYTICAL] \u2014 Geometric & analytical mechanics verification only; physical ISO 11334-4 lab proof-load, IP54 spray, acoustic SPL, and human gait trials are [PHYSICAL-PENDING].",
+  "summary": {
+    "total_checks": 80,
+    "passed": 80,
+    "failed": 0,
+    "all_passed": true
+  },
+  "zero_interference": {
+    "component_pairs_tested": 120,
+    "max_component_overlap_mm3": 0.0,
+    "internal_fastener_max_overlap_mm3": 0.0,
+    "overlapping_pairs": {}
+  },
+  "verified_clearances_mm": {
+    "grip_upper__to__grip_lower": {
+      "distance_mm": 0.3,
+      "min_required_mm": 0.2,
+      "description": "Grip split clamping draw gap"
+    },
+    "grip_upper__to__ref_cane_shaft": {
+      "distance_mm": 0.3,
+      "min_required_mm": 0.2,
+      "description": "Upper grip bore to 22 mm aluminum handle tang"
+    },
+    "grip_lower__to__ref_cane_shaft": {
+      "distance_mm": 0.3,
+      "min_required_mm": 0.2,
+      "description": "Lower grip bore to 22 mm aluminum handle tang"
+    },
+    "sos_button_cap__to__grip_upper": {
+      "distance_mm": 0.283,
+      "min_required_mm": 0.2,
+      "description": "SOS button cap barrel & retention skirt inside guard bezel"
+    },
+    "sos_button_cap__to__ref_tactile_button": {
+      "distance_mm": 0.3,
+      "min_required_mm": 0.2,
+      "description": "SOS button cap rest gap above switch plunger"
+    },
+    "ref_tactile_button__to__grip_upper": {
+      "distance_mm": 0.25,
+      "min_required_mm": 0.2,
+      "description": "Sealed 12x12 tactile switch inside thumb deck pocket"
+    },
+    "pod_front_shell__to__pod_rear_shell": {
+      "distance_mm": 0.25,
+      "min_required_mm": 0.2,
+      "description": "Pod tongue-and-groove & clamping draw gap"
+    },
+    "epdm_shaft_liner__to__ref_cane_shaft": {
+      "distance_mm": 0.25,
+      "min_required_mm": 0.2,
+      "description": "EPDM liner inner bore to 22 mm aluminum shaft"
+    },
+    "epdm_shaft_liner__to__pod_front_shell": {
+      "distance_mm": 0.25,
+      "min_required_mm": 0.2,
+      "description": "EPDM liner outer surface to front shell pocket"
+    },
+    "epdm_shaft_liner__to__pod_rear_shell": {
+      "distance_mm": 0.25,
+      "min_required_mm": 0.2,
+      "description": "EPDM liner outer surface to rear shell pocket"
+    },
+    "ref_pcb__to__pod_front_shell": {
+      "distance_mm": 0.25,
+      "min_required_mm": 0.2,
+      "description": "Carrier PCB & ICs to front shell standoffs/walls"
+    },
+    "ref_pcb__to__epdm_shaft_liner": {
+      "distance_mm": 9.05,
+      "min_required_mm": 5.0,
+      "description": "Carrier PCB components to lined cane shaft"
+    },
+    "ref_imu_module__to__pod_front_shell": {
+      "distance_mm": 0.25,
+      "min_required_mm": 0.2,
+      "description": "Keyed ICM-42688-P IMU carrier inside anti-rattle pocket"
+    },
+    "ref_battery_cell__to__pod_rear_shell": {
+      "distance_mm": 0.35,
+      "min_required_mm": 0.25,
+      "description": "Protected 18650 cell inside contoured rear cradle"
+    },
+    "ref_battery_cell__to__epdm_shaft_liner": {
+      "distance_mm": 2.1,
+      "min_required_mm": 2.0,
+      "description": "Protected 18650 cell to lined cane shaft"
+    },
+    "ref_speaker_driver__to__pod_front_shell": {
+      "distance_mm": 0.3,
+      "min_required_mm": 0.25,
+      "description": "\u00d828 mm IP67 speaker inside sealed acoustic chamber"
+    },
+    "ref_usbc_port__to__pod_front_shell": {
+      "distance_mm": 1.518,
+      "min_required_mm": 0.3,
+      "description": "USB-C receptacle to bottom shell port clearance"
+    },
+    "usbc_dust_plug__to__pod_front_shell": {
+      "distance_mm": 0.3,
+      "min_required_mm": 0.2,
+      "description": "TPU USB-C ingress plug inside bottom gasket seat"
+    },
+    "usbc_dust_plug__to__ref_usbc_port": {
+      "distance_mm": 1.6,
+      "min_required_mm": 1.0,
+      "description": "TPU USB-C ingress plug tip to USB-C receptacle"
+    },
+    "ref_fasteners__to__grip_upper": {
+      "distance_mm": 0.1,
+      "min_required_mm": 0.05,
+      "description": "M3 grip fasteners to upper grip insert pockets"
+    },
+    "ref_fasteners__to__grip_lower": {
+      "distance_mm": 0.225,
+      "min_required_mm": 0.15,
+      "description": "M3 grip fasteners to lower grip counterbores"
+    },
+    "ref_fasteners__to__pod_front_shell": {
+      "distance_mm": 0.1,
+      "min_required_mm": 0.05,
+      "description": "M3 pod fasteners to front shell insert pockets"
+    },
+    "ref_fasteners__to__pod_rear_shell": {
+      "distance_mm": 0.225,
+      "min_required_mm": 0.15,
+      "description": "M3 pod fasteners to rear shell counterbores"
+    },
+    "ref_fasteners__to__ref_cane_shaft": {
+      "distance_mm": 2.155,
+      "min_required_mm": 1.5,
+      "description": "All M3 fasteners clear of structural aluminum cane shaft"
+    }
+  },
+  "mass_and_inertia_comparison": {
+    "wrist_pivot_mm": [
+      18.0,
+      0.0,
+      886.0
+    ],
+    "shoulder_pivot_mm": [
+      18.0,
+      0.0,
+      1536.0
+    ],
+    "base_cane_reference": {
+      "mass_g": 370.3,
+      "I_wrist_kg_mm2": 64388.1,
+      "I_shoulder_kg_mm2": 407479.0
+    },
+    "v1_hackathon_trays": {
+      "pi_case_stl_volume_cm3": 95.52,
+      "pi_case_dims_mm": [
+        45.1,
+        68.8,
+        222.35
+      ],
+      "bank_holder_stl_volume_cm3": 61.74,
+      "bank_holder_dims_mm": [
+        33.5,
+        69.8,
+        137.6
+      ],
+      "added_mass_g": 460.8,
+      "added_com_mm": [
+        20.78,
+        -0.13,
+        492.86
+      ],
+      "added_I_wrist_kg_mm2": 75859.0,
+      "added_I_wrist_kg_m2": 0.07586,
+      "added_I_shoulder_kg_mm2": 506019.0,
+      "added_I_shoulder_kg_m2": 0.506
+    },
+    "v2_engineered_redesign": {
+      "added_smart_hardware_gross_mass_g": 240.2,
+      "net_added_mass_minus_stock_foam_grip_g": 218.2,
+      "concentric_pod_total_mass_g": 164.2,
+      "concentric_pod_com_mm": [
+        -2.51,
+        -0.03,
+        697.45
+      ],
+      "added_hardware_com_mm": [
+        9.61,
+        -0.02,
+        752.63
+      ],
+      "full_cane_total_mass_g": 610.5,
+      "full_cane_com_mm": [
+        2.35,
+        -0.01,
+        598.39
+      ],
+      "added_I_wrist_kg_mm2": 6173.2,
+      "added_I_wrist_kg_m2": 0.00617,
+      "added_I_shoulder_kg_mm2": 149290.5,
+      "added_I_shoulder_kg_m2": 0.1493
+    },
+    "improvements_v2_vs_v1": {
+      "gross_added_mass_reduction_pct": 47.9,
+      "net_added_mass_reduction_pct": 52.6,
+      "pod_horizontal_eccentricity_reduction_mm": 18.27,
+      "wrist_rotational_inertia_reduction_pct": 91.9,
+      "wrist_rotational_inertia_factor_x": 12.3,
+      "shoulder_rotational_inertia_reduction_pct": 70.5
+    },
+    "v2_component_breakdown": [
+      {
+        "name": "grip_upper",
+        "category": "printable",
+        "volume_cm3": 63.84,
+        "mass_g": 34.24,
+        "com_mm": [
+          39.16,
+          -0.0,
+          896.92
+        ],
+        "dist_wrist_mm": 23.8,
+        "I_wrist_kg_mm2": 19.4,
+        "I_shoulder_kg_mm2": 13999.7,
+        "basis": "3-wall (1.2 mm) + 25% gyroid FDM model on 63.84 cm^3 (1.07 g/cm^3)"
+      },
+      {
+        "name": "grip_lower",
+        "category": "printable",
+        "volume_cm3": 48.78,
+        "mass_g": 28.6,
+        "com_mm": [
+          41.93,
+          0.0,
+          876.79
+        ],
+        "dist_wrist_mm": 25.6,
+        "I_wrist_kg_mm2": 18.8,
+        "I_shoulder_kg_mm2": 12444.7,
+        "basis": "3-wall (1.2 mm) + 25% gyroid FDM model on 48.78 cm^3 (1.07 g/cm^3)"
+      },
+      {
+        "name": "sos_button_cap",
+        "category": "printable",
+        "volume_cm3": 0.56,
+        "mass_g": 0.67,
+        "com_mm": [
+          -4.0,
+          0.0,
+          906.24
+        ],
+        "dist_wrist_mm": 29.9,
+        "I_wrist_kg_mm2": 0.6,
+        "I_shoulder_kg_mm2": 266.0,
+        "basis": "3-wall (1.2 mm) + 25% gyroid FDM model on 0.56 cm^3 (1.27 g/cm^3)"
+      },
+      {
+        "name": "pod_front_shell",
+        "category": "printable",
+        "volume_cm3": 60.59,
+        "mass_g": 42.33,
+        "com_mm": [
+          19.87,
+          -0.01,
+          700.34
+        ],
+        "dist_wrist_mm": 185.7,
+        "I_wrist_kg_mm2": 1459.2,
+        "I_shoulder_kg_mm2": 29560.4,
+        "basis": "3-wall (1.2 mm) + 25% gyroid FDM model on 60.59 cm^3 (1.07 g/cm^3)"
+      },
+      {
+        "name": "pod_rear_shell",
+        "category": "printable",
+        "volume_cm3": 56.92,
+        "mass_g": 40.38,
+        "com_mm": [
+          -20.0,
+          -0.04,
+          697.49
+        ],
+        "dist_wrist_mm": 192.3,
+        "I_wrist_kg_mm2": 1493.3,
+        "I_shoulder_kg_mm2": 28449.4,
+        "basis": "3-wall (1.2 mm) + 25% gyroid FDM model on 56.92 cm^3 (1.07 g/cm^3)"
+      },
+      {
+        "name": "epdm_shaft_liner",
+        "category": "printable_elastomer",
+        "volume_cm3": 5.81,
+        "mass_g": 6.86,
+        "com_mm": [
+          0.0,
+          -0.53,
+          698.0
+        ],
+        "dist_wrist_mm": 188.9,
+        "I_wrist_kg_mm2": 244.7,
+        "I_shoulder_kg_mm2": 4819.6,
+        "basis": "CAD solid vol (5.81 cm^3) x 1.18 g/cm^3"
+      },
+      {
+        "name": "usbc_dust_plug",
+        "category": "printable_elastomer",
+        "volume_cm3": 0.43,
+        "mass_g": 0.5,
+        "com_mm": [
+          23.52,
+          0.0,
+          646.38
+        ],
+        "dist_wrist_mm": 239.7,
+        "I_wrist_kg_mm2": 28.7,
+        "I_shoulder_kg_mm2": 395.7,
+        "basis": "CAD solid vol (0.43 cm^3) x 1.18 g/cm^3"
+      },
+      {
+        "name": "ref_cane_shaft",
+        "category": "structural_metal",
+        "volume_cm3": 124.69,
+        "mass_g": 336.68,
+        "com_mm": [
+          -2.59,
+          0.0,
+          546.48
+        ],
+        "dist_wrist_mm": 340.1,
+        "I_wrist_kg_mm2": 38953.1,
+        "I_shoulder_kg_mm2": 329802.9,
+        "basis": "CAD solid vol (124.69 cm^3) x 2.7 g/cm^3"
+      },
+      {
+        "name": "ref_ferrule_tip",
+        "category": "elastomer_tip",
+        "volume_cm3": 26.92,
+        "mass_g": 33.65,
+        "com_mm": [
+          0.0,
+          -0.0,
+          16.78
+        ],
+        "dist_wrist_mm": 869.4,
+        "I_wrist_kg_mm2": 25434.9,
+        "I_shoulder_kg_mm2": 77676.1,
+        "basis": "CAD solid vol (26.92 cm^3) x 1.25 g/cm^3"
+      },
+      {
+        "name": "ref_pcb",
+        "category": "electronics",
+        "volume_cm3": 4.09,
+        "mass_g": 13.8,
+        "com_mm": [
+          24.76,
+          0.0,
+          679.79
+        ],
+        "dist_wrist_mm": 206.3,
+        "I_wrist_kg_mm2": 587.4,
+        "I_shoulder_kg_mm2": 10117.3,
+        "basis": "Datasheet COTS component mass"
+      },
+      {
+        "name": "ref_imu_module",
+        "category": "electronics",
+        "volume_cm3": 0.37,
+        "mass_g": 1.4,
+        "com_mm": [
+          31.55,
+          0.0,
+          710.0
+        ],
+        "dist_wrist_mm": 176.5,
+        "I_wrist_kg_mm2": 43.6,
+        "I_shoulder_kg_mm2": 955.4,
+        "basis": "Datasheet COTS component mass"
+      },
+      {
+        "name": "ref_battery_cell",
+        "category": "electronics",
+        "volume_cm3": 18.37,
+        "mass_g": 48.5,
+        "com_mm": [
+          -23.5,
+          0.0,
+          694.3
+        ],
+        "dist_wrist_mm": 196.1,
+        "I_wrist_kg_mm2": 1865.9,
+        "I_shoulder_kg_mm2": 34443.8,
+        "basis": "Datasheet COTS component mass"
+      },
+      {
+        "name": "ref_speaker_driver",
+        "category": "electronics",
+        "volume_cm3": 3.14,
+        "mass_g": 9.2,
+        "com_mm": [
+          29.25,
+          -0.0,
+          733.0
+        ],
+        "dist_wrist_mm": 153.4,
+        "I_wrist_kg_mm2": 216.5,
+        "I_shoulder_kg_mm2": 5933.4,
+        "basis": "Datasheet COTS component mass"
+      },
+      {
+        "name": "ref_tactile_button",
+        "category": "electronics",
+        "volume_cm3": 0.54,
+        "mass_g": 1.1,
+        "com_mm": [
+          -4.0,
+          0.0,
+          901.53
+        ],
+        "dist_wrist_mm": 26.9,
+        "I_wrist_kg_mm2": 0.8,
+        "I_shoulder_kg_mm2": 443.3,
+        "basis": "Datasheet COTS component mass"
+      },
+      {
+        "name": "ref_usbc_port",
+        "category": "electronics",
+        "volume_cm3": 0.21,
+        "mass_g": 1.2,
+        "com_mm": [
+          23.52,
+          0.0,
+          654.88
+        ],
+        "dist_wrist_mm": 231.2,
+        "I_wrist_kg_mm2": 64.1,
+        "I_shoulder_kg_mm2": 931.7,
+        "basis": "Datasheet COTS component mass"
+      },
+      {
+        "name": "ref_fasteners",
+        "category": "hardware",
+        "volume_cm3": 1.8,
+        "mass_g": 11.4,
+        "com_mm": [
+          16.44,
+          -0.0,
+          779.17
+        ],
+        "dist_wrist_mm": 106.8,
+        "I_wrist_kg_mm2": 130.1,
+        "I_shoulder_kg_mm2": 6529.9,
+        "basis": "Datasheet COTS component mass"
+      }
+    ]
+  },
+  "structural_analytical_checks": {
+    "iso_11334_4_reference_static_load_N": 1000.0,
+    "shaft_6061_t6_section_area_mm2": 125.66,
+    "shaft_6061_t6_section_modulus_mm3": 576.91,
+    "straight_shaft_combined_stress_MPa": 34.0,
+    "swan_neck_lever_arm_mm": 83.3,
+    "swan_neck_bend_sif": 1.16,
+    "swan_neck_peak_stress_MPa": 175.9,
+    "swan_neck_static_sf_on_yield": 1.57,
+    "swan_neck_note": "Two-force-member model, conservative (ignores hand counter-moment). Fatigue at the bend and the static proof itself are [PHYSICAL-PENDING] on an ISO 11334-4 test frame.",
+    "euler_critical_buckling_load_N": 2755.0,
+    "polymer_grip_bearing_stress_over_aluminum_core_MPa": 0.41,
+    "m3_clamp_retained_preload_total_N": 2017.0,
+    "epdm_axial_slip_resistance_N": 1109.0,
+    "epdm_torsional_slip_resistance_Nm": 12.2,
+    "shock_20g_slip_safety_factor": 34.4
+  },
+  "checks": [
+    {
+      "check": "STEP B-Rep valid: grip_upper",
+      "pass": true,
+      "value": "1 solid(s), vol=63839.5 mm^3",
+      "note": ""
+    },
+    {
+      "check": "Print STL 2-manifold watertight: grip_upper",
+      "pass": true,
+      "value": "11810 tris, boundary=0",
+      "note": ""
+    },
+    {
+      "check": "Print STL matches STEP volume (<1%): grip_upper",
+      "pass": true,
+      "value": "0.299%",
+      "note": ""
+    },
+    {
+      "check": "Print STL flat on bed (min_z=0) & fits 220x220: grip_upper",
+      "pass": true,
+      "value": "dims=[128.0, 46.7, 25.7] mm, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "Print 3MF valid & matches STEP (<1%): grip_upper",
+      "pass": true,
+      "value": "11810 tris, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: grip_lower",
+      "pass": true,
+      "value": "1 solid(s), vol=48779.6 mm^3",
+      "note": ""
+    },
+    {
+      "check": "Print STL 2-manifold watertight: grip_lower",
+      "pass": true,
+      "value": "13836 tris, boundary=0",
+      "note": ""
+    },
+    {
+      "check": "Print STL matches STEP volume (<1%): grip_lower",
+      "pass": true,
+      "value": "0.358%",
+      "note": ""
+    },
+    {
+      "check": "Print STL flat on bed (min_z=0) & fits 220x220: grip_lower",
+      "pass": true,
+      "value": "dims=[128.0, 46.76, 17.26] mm, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "Print 3MF valid & matches STEP (<1%): grip_lower",
+      "pass": true,
+      "value": "13836 tris, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: sos_button_cap",
+      "pass": true,
+      "value": "1 solid(s), vol=562.1 mm^3",
+      "note": ""
+    },
+    {
+      "check": "Print STL 2-manifold watertight: sos_button_cap",
+      "pass": true,
+      "value": "2138 tris, boundary=0",
+      "note": ""
+    },
+    {
+      "check": "Print STL matches STEP volume (<1%): sos_button_cap",
+      "pass": true,
+      "value": "0.051%",
+      "note": ""
+    },
+    {
+      "check": "Print STL flat on bed (min_z=0) & fits 220x220: sos_button_cap",
+      "pass": true,
+      "value": "dims=[15.7, 15.7, 3.65] mm, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "Print 3MF valid & matches STEP (<1%): sos_button_cap",
+      "pass": true,
+      "value": "2138 tris, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: pod_front_shell",
+      "pass": true,
+      "value": "1 solid(s), vol=60593.9 mm^3",
+      "note": ""
+    },
+    {
+      "check": "Print STL 2-manifold watertight: pod_front_shell",
+      "pass": true,
+      "value": "12746 tris, boundary=0",
+      "note": ""
+    },
+    {
+      "check": "Print STL matches STEP volume (<1%): pod_front_shell",
+      "pass": true,
+      "value": "0.000%",
+      "note": ""
+    },
+    {
+      "check": "Print STL flat on bed (min_z=0) & fits 220x220: pod_front_shell",
+      "pass": true,
+      "value": "dims=[108.0, 44.0, 37.05] mm, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "Print 3MF valid & matches STEP (<1%): pod_front_shell",
+      "pass": true,
+      "value": "12746 tris, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: pod_rear_shell",
+      "pass": true,
+      "value": "1 solid(s), vol=56919.3 mm^3",
+      "note": ""
+    },
+    {
+      "check": "Print STL 2-manifold watertight: pod_rear_shell",
+      "pass": true,
+      "value": "8640 tris, boundary=0",
+      "note": ""
+    },
+    {
+      "check": "Print STL matches STEP volume (<1%): pod_rear_shell",
+      "pass": true,
+      "value": "0.001%",
+      "note": ""
+    },
+    {
+      "check": "Print STL flat on bed (min_z=0) & fits 220x220: pod_rear_shell",
+      "pass": true,
+      "value": "dims=[108.0, 44.0, 35.4] mm, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "Print 3MF valid & matches STEP (<1%): pod_rear_shell",
+      "pass": true,
+      "value": "8640 tris, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: epdm_shaft_liner",
+      "pass": true,
+      "value": "1 solid(s), vol=5813.4 mm^3",
+      "note": ""
+    },
+    {
+      "check": "Print STL 2-manifold watertight: epdm_shaft_liner",
+      "pass": true,
+      "value": "968 tris, boundary=0",
+      "note": ""
+    },
+    {
+      "check": "Print STL matches STEP volume (<1%): epdm_shaft_liner",
+      "pass": true,
+      "value": "0.040%",
+      "note": ""
+    },
+    {
+      "check": "Print STL flat on bed (min_z=0) & fits 220x220: epdm_shaft_liner",
+      "pass": true,
+      "value": "dims=[24.2, 24.09, 97.5] mm, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "Print 3MF valid & matches STEP (<1%): epdm_shaft_liner",
+      "pass": true,
+      "value": "968 tris, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: usbc_dust_plug",
+      "pass": true,
+      "value": "1 solid(s), vol=427.2 mm^3",
+      "note": ""
+    },
+    {
+      "check": "Print STL 2-manifold watertight: usbc_dust_plug",
+      "pass": true,
+      "value": "28 tris, boundary=0",
+      "note": ""
+    },
+    {
+      "check": "Print STL matches STEP volume (<1%): usbc_dust_plug",
+      "pass": true,
+      "value": "0.000%",
+      "note": ""
+    },
+    {
+      "check": "Print STL flat on bed (min_z=0) & fits 220x220: usbc_dust_plug",
+      "pass": true,
+      "value": "dims=[8.0, 13.8, 5.4] mm, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "Print 3MF valid & matches STEP (<1%): usbc_dust_plug",
+      "pass": true,
+      "value": "28 tris, min_z=0.0000",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_cane_shaft",
+      "pass": true,
+      "value": "1 solid(s), vol=124694.8 mm^3",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_ferrule_tip",
+      "pass": true,
+      "value": "1 solid(s), vol=26923.7 mm^3",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_pcb",
+      "pass": true,
+      "value": "1 solid(s), vol=4088.4 mm^3",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_imu_module",
+      "pass": true,
+      "value": "1 solid(s), vol=369.6 mm^3",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_battery_cell",
+      "pass": true,
+      "value": "1 solid(s), vol=18366.8 mm^3",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_speaker_driver",
+      "pass": true,
+      "value": "1 solid(s), vol=3140.3 mm^3",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_tactile_button",
+      "pass": true,
+      "value": "1 solid(s), vol=535.1 mm^3",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_usbc_port",
+      "pass": true,
+      "value": "1 solid(s), vol=214.2 mm^3",
+      "note": ""
+    },
+    {
+      "check": "STEP B-Rep valid: ref_fasteners",
+      "pass": true,
+      "value": "16 solid(s), vol=1803.4 mm^3",
+      "note": ""
+    },
+    {
+      "check": "Fit coupon STEP/STL/3MF valid & watertight",
+      "pass": true,
+      "value": "dims=[52.0, 30.0, 13.6] mm",
+      "note": ""
+    },
+    {
+      "check": "Full assembly STEP re-import integrity",
+      "pass": true,
+      "value": "31 valid B-Rep solids",
+      "note": ""
+    },
+    {
+      "check": "All 120 component-pair boolean intersections == 0.000 mm^3",
+      "pass": true,
+      "value": "max=0.00000 mm^3 across 120 pairs",
+      "note": "Zero unintended solid-to-solid interference"
+    },
+    {
+      "check": "Internal M3 screw vs brass heat-set insert overlap == 0.000 mm^3",
+      "pass": true,
+      "value": "max=0.00000 mm^3 across 16 hardware solids",
+      "note": ""
+    },
+    {
+      "check": "Clearance grip_upper <-> grip_lower >= 0.20 mm",
+      "pass": true,
+      "value": "0.300 mm",
+      "note": "Grip split clamping draw gap"
+    },
+    {
+      "check": "Clearance grip_upper <-> ref_cane_shaft >= 0.20 mm",
+      "pass": true,
+      "value": "0.300 mm",
+      "note": "Upper grip bore to 22 mm aluminum handle tang"
+    },
+    {
+      "check": "Clearance grip_lower <-> ref_cane_shaft >= 0.20 mm",
+      "pass": true,
+      "value": "0.300 mm",
+      "note": "Lower grip bore to 22 mm aluminum handle tang"
+    },
+    {
+      "check": "Clearance sos_button_cap <-> grip_upper >= 0.20 mm",
+      "pass": true,
+      "value": "0.283 mm",
+      "note": "SOS button cap barrel & retention skirt inside guard bezel"
+    },
+    {
+      "check": "Clearance sos_button_cap <-> ref_tactile_button >= 0.20 mm",
+      "pass": true,
+      "value": "0.300 mm",
+      "note": "SOS button cap rest gap above switch plunger"
+    },
+    {
+      "check": "Clearance ref_tactile_button <-> grip_upper >= 0.20 mm",
+      "pass": true,
+      "value": "0.250 mm",
+      "note": "Sealed 12x12 tactile switch inside thumb deck pocket"
+    },
+    {
+      "check": "Clearance pod_front_shell <-> pod_rear_shell >= 0.20 mm",
+      "pass": true,
+      "value": "0.250 mm",
+      "note": "Pod tongue-and-groove & clamping draw gap"
+    },
+    {
+      "check": "Clearance epdm_shaft_liner <-> ref_cane_shaft >= 0.20 mm",
+      "pass": true,
+      "value": "0.250 mm",
+      "note": "EPDM liner inner bore to 22 mm aluminum shaft"
+    },
+    {
+      "check": "Clearance epdm_shaft_liner <-> pod_front_shell >= 0.20 mm",
+      "pass": true,
+      "value": "0.250 mm",
+      "note": "EPDM liner outer surface to front shell pocket"
+    },
+    {
+      "check": "Clearance epdm_shaft_liner <-> pod_rear_shell >= 0.20 mm",
+      "pass": true,
+      "value": "0.250 mm",
+      "note": "EPDM liner outer surface to rear shell pocket"
+    },
+    {
+      "check": "Clearance ref_pcb <-> pod_front_shell >= 0.20 mm",
+      "pass": true,
+      "value": "0.250 mm",
+      "note": "Carrier PCB & ICs to front shell standoffs/walls"
+    },
+    {
+      "check": "Clearance ref_pcb <-> epdm_shaft_liner >= 5.00 mm",
+      "pass": true,
+      "value": "9.050 mm",
+      "note": "Carrier PCB components to lined cane shaft"
+    },
+    {
+      "check": "Clearance ref_imu_module <-> pod_front_shell >= 0.20 mm",
+      "pass": true,
+      "value": "0.250 mm",
+      "note": "Keyed ICM-42688-P IMU carrier inside anti-rattle pocket"
+    },
+    {
+      "check": "Clearance ref_battery_cell <-> pod_rear_shell >= 0.25 mm",
+      "pass": true,
+      "value": "0.350 mm",
+      "note": "Protected 18650 cell inside contoured rear cradle"
+    },
+    {
+      "check": "Clearance ref_battery_cell <-> epdm_shaft_liner >= 2.00 mm",
+      "pass": true,
+      "value": "2.100 mm",
+      "note": "Protected 18650 cell to lined cane shaft"
+    },
+    {
+      "check": "Clearance ref_speaker_driver <-> pod_front_shell >= 0.25 mm",
+      "pass": true,
+      "value": "0.300 mm",
+      "note": "\u00d828 mm IP67 speaker inside sealed acoustic chamber"
+    },
+    {
+      "check": "Clearance ref_usbc_port <-> pod_front_shell >= 0.30 mm",
+      "pass": true,
+      "value": "1.518 mm",
+      "note": "USB-C receptacle to bottom shell port clearance"
+    },
+    {
+      "check": "Clearance usbc_dust_plug <-> pod_front_shell >= 0.20 mm",
+      "pass": true,
+      "value": "0.300 mm",
+      "note": "TPU USB-C ingress plug inside bottom gasket seat"
+    },
+    {
+      "check": "Clearance usbc_dust_plug <-> ref_usbc_port >= 1.00 mm",
+      "pass": true,
+      "value": "1.600 mm",
+      "note": "TPU USB-C ingress plug tip to USB-C receptacle"
+    },
+    {
+      "check": "Clearance ref_fasteners <-> grip_upper >= 0.05 mm",
+      "pass": true,
+      "value": "0.100 mm",
+      "note": "M3 grip fasteners to upper grip insert pockets"
+    },
+    {
+      "check": "Clearance ref_fasteners <-> grip_lower >= 0.15 mm",
+      "pass": true,
+      "value": "0.225 mm",
+      "note": "M3 grip fasteners to lower grip counterbores"
+    },
+    {
+      "check": "Clearance ref_fasteners <-> pod_front_shell >= 0.05 mm",
+      "pass": true,
+      "value": "0.100 mm",
+      "note": "M3 pod fasteners to front shell insert pockets"
+    },
+    {
+      "check": "Clearance ref_fasteners <-> pod_rear_shell >= 0.15 mm",
+      "pass": true,
+      "value": "0.225 mm",
+      "note": "M3 pod fasteners to rear shell counterbores"
+    },
+    {
+      "check": "Clearance ref_fasteners <-> ref_cane_shaft >= 1.50 mm",
+      "pass": true,
+      "value": "2.155 mm",
+      "note": "All M3 fasteners clear of structural aluminum cane shaft"
+    },
+    {
+      "check": "v2 net added mass over stock cane < 230 g (>50% lighter than v1)",
+      "pass": true,
+      "value": "net=218.2 g (gross kit 240.2 g - 22 g stock grip) vs v1=460.8 g (-52.6%)",
+      "note": ""
+    },
+    {
+      "check": "v2 concentric pod horizontal CoM eccentricity |x| < 5.0 mm",
+      "pass": true,
+      "value": "pod CoM_x=-2.51 mm vs v1=+20.78 mm",
+      "note": ""
+    },
+    {
+      "check": "v2 added wrist rotational inertia reduced > 85% vs v1",
+      "pass": true,
+      "value": "v2=6173 vs v1=75859 kg*mm^2 (-91.9%)",
+      "note": ""
+    },
+    {
+      "check": "Structural [CAD/ANALYTICAL]: Straight 22x2 mm 6061-T6 shaft stress @ 1000 N < 276 MPa yield",
+      "pass": true,
+      "value": "34.0 MPa (yield 276 MPa)",
+      "note": ""
+    },
+    {
+      "check": "Structural [CAD/ANALYTICAL]: Swan-neck bend 6061-T6 static SF on yield >= 1.5 @ 1000 N",
+      "pass": true,
+      "value": "sigma_peak=176 MPa (lever 83.3 mm at x=-66.0, z=853.1; bend SIF 1.16) -> SF 1.57",
+      "note": ""
+    },
+    {
+      "check": "Structural [CAD/ANALYTICAL]: Euler column buckling load > 2.5x ISO 1000 N static load",
+      "pass": true,
+      "value": "P_cr = 2755 N (2.75x 1000 N)",
+      "note": ""
+    },
+    {
+      "check": "Structural [CAD/ANALYTICAL]: Polymer grip over-core bearing stress @ 1000 N < 5 MPa",
+      "pass": true,
+      "value": "0.41 MPa (ASA/PETG compressive > 55 MPa)",
+      "note": ""
+    },
+    {
+      "check": "Structural [CAD/ANALYTICAL]: EPDM + 4xM3 clamp slip margin > 25x at 20g cane strike",
+      "pass": true,
+      "value": "F_slip=1109 N vs F_20g=32.2 N (34x)",
+      "note": ""
+    }
+  ]
+}

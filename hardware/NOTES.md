@@ -1,31 +1,29 @@
 # Hardware
 
-## Printed parts
+## v2 Engineered Biomedical Architecture (`hardware/cad_v2/`)
 
-Two parts are printed and strapped to the cane's upper shaft. Nothing is drilled into the cane.
+HandyCane v2 replaces the v1 zip-tied open trays with an anatomically contoured over-core smart handle and a concentrically balanced, gasketed under-handle electronics spine mounted on a continuous unbroken `Ø22.0 × 2.0 mm` 6061-T6 aluminum swan-neck shaft (`0` holes drilled in the structural tube).
+
+- **Full Engineering Specification & Trade Study**: [`docs/PRODUCT_REDESIGN_V2.md`](../docs/PRODUCT_REDESIGN_V2.md)
+- **Parametric B-Rep CAD Suite & Print-Ready STLs/3MFs**: [`hardware/cad_v2/`](cad_v2/) ([`README.md`](cad_v2/README.md))
+- **Automated `0.000 mm³` Interference & Physics Verification**: [`hardware/cad_v2/verification_v2.json`](cad_v2/verification_v2.json)
+- **Autodesk Fusion 360 Import + Live User Parameters Script**: [`hardware/fusion360/HandyCaneV2_ImportAndParams/`](fusion360/HandyCaneV2_ImportAndParams/)
+
+| Hero Isometric (`cad_v2`) | Longitudinal Cross-Section (`cad_v2`) |
+|---|---|
+| ![HandyCane v2 Assembled Hero](cad_v2/renders/01_assembled_hero_iso.png) | ![HandyCane v2 Longitudinal Section](cad_v2/renders/03_longitudinal_cross_section.png) |
+
+---
+
+## v1 Hackathon Baseline (`hardware/cad/` — Historical Reference)
+
+Two open trays were printed and strapped to the cane's upper shaft with zip ties during the initial BioHacks prototype (`main` commit `bac9e09`). Retained here as the baseline reference measured by [`hardware/cad_v2/verify_cad_v2.py`](cad_v2/verify_cad_v2.py).
 
 | File | What it is | Size (mm) |
 |---|---|---|
-| `cad/pi_cane_case.stl` | Case for the Raspberry Pi, with a long tail that lies along the shaft | 222 x 69 x 45 |
-| `cad/bank_holder.stl` | Tray for the power bank | 138 x 70 x 34 |
+| `cad/pi_cane_case.stl` | Open tray for the Raspberry Pi, cantilevered forward off the shaft | 222 x 69 x 45 |
+| `cad/bank_holder.stl` | Open tray for the 10 Ah USB power bank | 138 x 70 x 34 |
 
-Both files are in print orientation: tray opening up, flat on the bed.
-
-Each part has a saddle underneath, an arch about 22 mm across, that sits on the 22 mm upper tube of the cane. Straps or zip ties around the end tabs hold it in place.
-
-| Assembled | Pulled apart |
+| Assembled (v1) | Pulled apart (v1) |
 |---|---|
 | ![The two parts on the cane](images/cane_assembly.png) | ![The two parts lifted off the cane](images/cane_apart.png) |
-
-## Assembly model
-
-`cad/assembly/` holds the same two parts moved into position on a cane, as three STL files that share one origin (z up, shaft on the z axis, millimetres). Open all three together in any STL viewer or slicer.
-
-- `pi_case.stl` and `bank_holder.stl` are the printed parts, unchanged apart from being moved.
-- `cane_reference.stl` is a plain stand-in for an offset-handle aluminium cane, cut off below the adjustment collar. It is there for context and is not measured from the real cane.
-- The heights of the two parts along the shaft are illustrative.
-
-## To fill in
-
-- parts list with quantities and links
-- pinout (which sensor connects to which pin)
