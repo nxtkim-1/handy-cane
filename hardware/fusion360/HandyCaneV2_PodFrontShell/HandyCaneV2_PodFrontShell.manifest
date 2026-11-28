@@ -1,0 +1,10 @@
+{
+  "autodeskProduct": "Fusion360",
+  "type": "script",
+  "author": "Thomas Kim",
+  "description": {
+    "": "Builds the HandyCane v2 pod_front_shell as a native parametric Fusion model: User Parameters drive fully constrained sketches and features."
+  },
+  "supportedOS": "windows|mac",
+  "editEnabled": true
+}

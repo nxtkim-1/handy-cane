@@ -2,7 +2,7 @@
 
 This folder contains a ready-to-run **Autodesk Fusion 360 Python Script** (`HandyCaneV2_ImportAndParams`) that imports the native OpenCascade B-Rep `.step` components generated in [`hardware/cad_v2/step/`](../../cad_v2/step/), organizes them into engineering sub-assemblies, applies product appearances, and populates **User Parameters** (`Modify -> Change Parameters`).
 
-> **Limitation:** STEP import brings in fixed B-Rep bodies with no feature history. The User Parameters are created as a reference table only; editing them does **not** change the imported geometry. To change a dimension, edit `CaneV2Params` in [`build_handycane_v2.py`](../../cad_v2/build_handycane_v2.py) and re-run the build, or rebuild a part natively in Fusion with sketches and features that reference these parameters.
+> **Limitation:** STEP import brings in fixed B-Rep bodies with no feature history. The User Parameters are created as a reference table only; editing them does **not** change the imported geometry. To change a dimension, edit `CaneV2Params` in [`build_handycane_v2.py`](../../cad_v2/build_handycane_v2.py) and re-run the build, or rebuild a part natively in Fusion with sketches and features that reference these parameters. [`../HandyCaneV2_PodFrontShell/`](../HandyCaneV2_PodFrontShell/) does this for `pod_front_shell`.
 
 ## What It Sets Up Automatically
 

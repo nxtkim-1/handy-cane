@@ -319,8 +319,7 @@ def build_ferrule_and_shaft(p: CaneV2Params) -> tuple[Solid, Solid, float]:
 # ---------------------------------------------------------------------------
 def build_ergonomic_grip(p: CaneV2Params) -> dict[str, Solid | Part]:
     zg = p.grip_center_z
-    r_bore = p.shaft_od / 2.0 + p.print_clearance  # 11.25 mm -> 11.30 mm with extra tolerance
-    r_bore = p.shaft_od / 2.0 + 0.30               # 11.30 mm bore around 11.00 mm tube
+    r_bore = p.shaft_od / 2.0 + 0.30  # 11.30 mm bore around the 11.00 mm tube (print_clearance + 0.05 mm)
 
     # Multi-station anatomical loft along +X:
     # (x_pos, full_width_y, z_bottom, z_top, corner_radius)
@@ -455,8 +454,8 @@ def build_ergonomic_grip(p: CaneV2Params) -> dict[str, Solid | Part]:
 # 3. Zone 2 — Concentric Under-Handle Electronics & Power Spine Pod
 # ---------------------------------------------------------------------------
 def build_concentric_pod(p: CaneV2Params) -> dict[str, Solid | list[Part]]:
-    z0, z1 = p.pod_z_min, p.pod_z_max  # 636.0 .. 756.0 mm (120.0 mm height)
-    hx = 0.5 * p.pod_depth_x           # 36.8 mm
+    z0, z1 = p.pod_z_min, p.pod_z_max  # 644.0 .. 752.0 mm (108.0 mm height)
+    hx = 0.5 * p.pod_depth_x           # 35.6 mm
     hy = 0.5 * p.pod_width_y           # 22.0 mm
     r_sh = p.shaft_od / 2.0            # 11.0 mm
 
