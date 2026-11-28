@@ -4,7 +4,7 @@ HandyCaneV2_ImportAndParams — Autodesk Fusion 360 Python API Script.
 Imports `hardware/cad_v2/step/handycane_v2_assembly.step` (or lets the user pick a folder),
 groups bodies into logical engineering sub-components (`Printable_Housing`, `Elastomers`,
 `Structural_Cane`, `Electronics_And_Hardware`), assigns appearances/materials, and registers
-key parametric `UserParameters` for live design studies inside Fusion 360.
+key `UserParameters` as a reference table (they do not drive the imported STEP bodies).
 """
 import os
 import traceback

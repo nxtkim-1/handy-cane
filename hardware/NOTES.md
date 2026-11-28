@@ -7,7 +7,7 @@ HandyCane v2 replaces the v1 zip-tied open trays with an anatomically contoured 
 - **Full Engineering Specification & Trade Study**: [`docs/PRODUCT_REDESIGN_V2.md`](../docs/PRODUCT_REDESIGN_V2.md)
 - **Parametric B-Rep CAD Suite & Print-Ready STLs/3MFs**: [`hardware/cad_v2/`](cad_v2/) ([`README.md`](cad_v2/README.md))
 - **Automated `0.000 mm³` Interference & Physics Verification**: [`hardware/cad_v2/verification_v2.json`](cad_v2/verification_v2.json)
-- **Autodesk Fusion 360 Import + Live User Parameters Script**: [`hardware/fusion360/HandyCaneV2_ImportAndParams/`](fusion360/HandyCaneV2_ImportAndParams/)
+- **Autodesk Fusion 360 Import Script (reference User Parameters)**: [`hardware/fusion360/HandyCaneV2_ImportAndParams/`](fusion360/HandyCaneV2_ImportAndParams/)
 
 | Hero Isometric (`cad_v2`) | Longitudinal Cross-Section (`cad_v2`) |
 |---|---|
